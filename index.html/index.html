@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a3a5c">
+<title>LED Planning Tool — Visual Affect</title>
+<link rel="stylesheet" href="css/styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ============================================================
+     LOGIN SCREEN
+============================================================ -->
+<div id="screen-login" class="screen active">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <img id="logo-login" src="assets/logo-dark.png" alt="Visual Affect" onerror="this.style.display='none'">
+        <div class="auth-logo-fallback">VISUAL AFFECT</div>
+      </div>
+      <div class="auth-appname">LED Planning Tool</div>
+      <div class="auth-divider"></div>
+
+      <div class="field-group">
+        <label>Username or Email</label>
+        <input type="text" id="login-email" class="field-input" placeholder="jklass" autocomplete="username">
+      </div>
+      <div class="field-group">
+        <label>Password</label>
+        <input type="password" id="login-password" class="field-input" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <button class="btn-auth" id="btn-login">Sign In</button>
+      <div class="auth-error" id="login-error"></div>
+      <div class="auth-link">
+        Don't have an account?
+        <span onclick="showScreen('screen-register')">Create one</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     REGISTER SCREEN
+============================================================ -->
+<div id="screen-register" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <img id="logo-register" src="assets/logo-dark.png" alt="Visual Affect" onerror="this.style.display='none'">
+        <div class="auth-logo-fallback">VISUAL AFFECT</div>
+      </div>
+      <div class="auth-appname">Create Account</div>
+      <div class="auth-divider"></div>
+
+      <div class="field-row-2">
+        <div class="field-group">
+          <label>First Name</label>
+          <input type="text" id="reg-firstname" class="field-input" placeholder="Joe">
+        </div>
+        <div class="field-group">
+          <label>Last Name</label>
+          <input type="text" id="reg-lastname" class="field-input" placeholder="Smith">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" class="field-input" placeholder="joe@example.com">
+      </div>
+      <div class="field-group">
+        <label>Phone Number</label>
+        <input type="tel" id="reg-phone" class="field-input" placeholder="(555) 000-0000">
+      </div>
+      <div class="field-row-2">
+        <div class="field-group">
+          <label>Password</label>
+          <input type="password" id="reg-password" class="field-input" placeholder="••••••••">
+        </div>
+        <div class="field-group">
+          <label>Confirm Password</label>
+          <input type="password" id="reg-confirm" class="field-input" placeholder="••••••••">
+        </div>
+      </div>
+
+      <button class="btn-auth" id="btn-register">Create Account</button>
+      <div class="auth-error" id="register-error"></div>
+      <div class="auth-link">
+        Already have an account?
+        <span onclick="showScreen('screen-login')">Sign in</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN APP
+============================================================ -->
+<div id="screen-app" class="screen">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <img id="logo-topbar" src="assets/logo-white.png" alt="VA"
+           onerror="this.style.display='none'"
+           onclick="navigateTo('projects')" style="cursor:pointer">
+      <div class="topbar-divider"></div>
+      <span class="topbar-appname">LED Planning Tool</span>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-username"></span>
+      <div class="online-indicator" id="online-indicator" title="Online"></div>
+      <button class="topbar-btn" id="btn-admin-nav" style="display:none" onclick="navigateTo('admin')">⚙ Admin</button>
+      <button class="topbar-btn" onclick="handleLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- APP BODY -->
+  <div class="app-body">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sb-item" data-section="projects" onclick="navigateTo('projects')">
+        <span class="sb-icon">📐</span> Projects
+      </div>
+      <div class="sb-item" data-section="clients" onclick="navigateTo('clients')">
+        <span class="sb-icon">👥</span> Clients
+      </div>
+      <div class="sb-item" data-section="inventory" onclick="navigateTo('inventory')">
+        <span class="sb-icon">📦</span> Inventory
+      </div>
+      <div class="sb-item" data-section="proposals" onclick="navigateTo('proposals')">
+        <span class="sb-icon">📄</span> Proposals
+      </div>
+      <div class="sb-item" data-section="logistics" onclick="navigateTo('logistics')">
+        <span class="sb-icon">🗓</span> Logistics
+      </div>
+      <div class="sb-item" data-section="tasks" onclick="navigateTo('tasks')">
+        <span class="sb-icon">✅</span> Tasks
+      </div>
+      <div class="sb-separator"></div>
+      <div class="sb-item" data-section="admin" id="sb-admin" style="display:none" onclick="navigateTo('admin')">
+        <span class="sb-icon">⚙</span> Admin
+      </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="main-content">
+      <!-- Populated by JS modules -->
+      <div class="loading-state" id="content-loader">
+        <div class="spinner"></div>
+        <div>Loading...</div>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     PUBLIC CLIENT VIEW (proposal approval, logistics share)
+     This is handled by client.html — not this file
+============================================================ -->
+
+<!-- ============================================================
+     GLOBAL MODALS CONTAINER
+     Each module appends its own modals here
+============================================================ -->
+<div id="modals-container"></div>
+
+<!-- ============================================================
+     OFFLINE BANNER
+============================================================ -->
+<div id="offline-banner" class="offline-banner" style="display:none">
+  ⚠ You're offline. Changes will sync when you reconnect.
+</div>
+
+<!-- ============================================================
+     TOAST NOTIFICATIONS
+============================================================ -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- ============================================================
+     ENVIRONMENT CONFIG
+     In production, Netlify injects these via _headers or a
+     build plugin. For local dev, replace with your actual values.
+============================================================ -->
+<script>
+  window.ENV = {
+    SUPABASE_URL: 'https://cqcbbmchnxjjefcmkcwk.supabase.co',
+    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY2JibWNobnhqamVmY21rY3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMDQ2MjYsImV4cCI6MjA5MTY4MDYyNn0.rAjJBEbMWsikqHs1u1CYNFbDDXW-z90v7Vm7pSv_6rs',
+  };
+</script>
+
+<!-- ============================================================
+     APP BOOTSTRAP
+============================================================ -->
+<script type="module">
+  import { initAuth, login, logout, register, getProfile, isAdmin } from './js/auth.js';
+  import { getOnlineStatus } from './js/supabase.js';
+
+  // ── SCREEN MANAGEMENT ──────────────────────────────────────
+  window.showScreen = function(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id)?.classList.add('active');
+  };
+
+  // ── NAVIGATION ─────────────────────────────────────────────
+  window.navigateTo = async function(section) {
+    // Update sidebar active state
+    document.querySelectorAll('.sb-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.section === section);
+    });
+
+    // Show loader
+    const mc = document.getElementById('main-content');
+    mc.innerHTML = '<div class="loading-state"><div class="spinner"></div><div>Loading...</div></div>';
+
+    // Dynamically import and render the correct module
+    try {
+      const module = await import(`./js/${section}.js`);
+      if (module.render) {
+        await module.render(mc);
+      }
+    } catch (err) {
+      console.error(`[Nav] Failed to load module: ${section}`, err);
+      mc.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">Module not loaded yet</div>
+        <p>${section}.js is coming in the next build phase.</p>
+      </div>`;
+    }
+  };
+
+  // ── ONLINE/OFFLINE UI ──────────────────────────────────────
+  function updateOnlineUI(online) {
+    const indicator = document.getElementById('online-indicator');
+    const banner = document.getElementById('offline-banner');
+    if (indicator) {
+      indicator.classList.toggle('online', online);
+      indicator.classList.toggle('offline', !online);
+      indicator.title = online ? 'Online' : 'Offline';
+    }
+    if (banner) banner.style.display = online ? 'none' : 'block';
+  }
+
+  document.addEventListener('va:online', () => updateOnlineUI(true));
+  document.addEventListener('va:offline', () => updateOnlineUI(false));
+  updateOnlineUI(navigator.onLine);
+
+  // ── TOAST NOTIFICATIONS ────────────────────────────────────
+  window.showToast = function(message, type = 'success', duration = 3500) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  };
+
+  // ── LOGIN ──────────────────────────────────────────────────
+  document.getElementById('btn-login').addEventListener('click', handleLogin);
+  document.getElementById('login-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+  });
+
+  async function handleLogin() {
+    const btn = document.getElementById('btn-login');
+    const errEl = document.getElementById('login-error');
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+      errEl.textContent = 'Please enter your username and password.';
+      return;
+    }
+
+    btn.textContent = 'Signing in...';
+    btn.disabled = true;
+    errEl.textContent = '';
+
+    const { error } = await login(email, password);
+
+    if (error) {
+      errEl.textContent = error.message || 'Login failed. Please try again.';
+      btn.textContent = 'Sign In';
+      btn.disabled = false;
+      return;
+    }
+
+    onSignedIn();
+  }
+
+  // ── REGISTER ───────────────────────────────────────────────
+  document.getElementById('btn-register').addEventListener('click', handleRegister);
+
+  async function handleRegister() {
+    const btn = document.getElementById('btn-register');
+    const errEl = document.getElementById('register-error');
+    const firstName = document.getElementById('reg-firstname').value.trim();
+    const lastName = document.getElementById('reg-lastname').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const phone = document.getElementById('reg-phone').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const confirm = document.getElementById('reg-confirm').value;
+
+    if (!firstName || !lastName || !email || !password) {
+      errEl.textContent = 'Please fill in all required fields.';
+      return;
+    }
+    if (password !== confirm) {
+      errEl.textContent = 'Passwords do not match.';
+      return;
+    }
+    if (password.length < 8) {
+      errEl.textContent = 'Password must be at least 8 characters.';
+      return;
+    }
+
+    btn.textContent = 'Creating account...';
+    btn.disabled = true;
+    errEl.textContent = '';
+    errEl.style.color = '';
+
+    const { error } = await register({ firstName, lastName, email, phone, password });
+
+    if (error) {
+      errEl.textContent = error.message || 'Registration failed. Please try again.';
+      btn.textContent = 'Create Account';
+      btn.disabled = false;
+      return;
+    }
+
+    errEl.style.color = 'var(--color-ok)';
+    errEl.textContent = 'Account created! Signing you in...';
+    setTimeout(() => onSignedIn(), 1000);
+  }
+
+  // ── LOGOUT ─────────────────────────────────────────────────
+  window.handleLogout = async function() {
+    await logout();
+    showScreen('screen-login');
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
+  };
+
+  // ── POST-LOGIN SETUP ───────────────────────────────────────
+  function onSignedIn() {
+    const profile = getProfile();
+    if (!profile) return;
+
+    // Set topbar username
+    const nameEl = document.getElementById('topbar-username');
+    if (nameEl) nameEl.textContent = `${profile.first_name} ${profile.last_name}`.trim() || profile.id;
+
+    // Show admin nav if admin
+    if (isAdmin()) {
+      document.getElementById('btn-admin-nav').style.display = '';
+      document.getElementById('sb-admin').style.display = '';
+    }
+
+    showScreen('screen-app');
+    navigateTo('projects');
+  }
+
+  // ── INIT ───────────────────────────────────────────────────
+  async function init() {
+    const alreadyLoggedIn = await initAuth();
+
+    if (alreadyLoggedIn) {
+      // Small delay to ensure profile is loaded
+      setTimeout(onSignedIn, 100);
+    } else {
+      showScreen('screen-login');
+    }
+
+    // Listen for auth events
+    document.addEventListener('va:signed-in', () => onSignedIn());
+    document.addEventListener('va:signed-out', () => showScreen('screen-login'));
+  }
+
+  init();
+</script>
+
+</body>
+</html>
