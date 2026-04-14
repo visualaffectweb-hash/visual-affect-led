@@ -209,7 +209,7 @@ async function _wFinish() {
     event_start_date:wAns.eventStart||null, event_end_date:wAns.eventEnd||null, notes:JSON.stringify({loadIn:{date:wAns.loadInDate||'',time:wAns.loadInTime||''},showDays:wAns.showDays||[],loadOut:{date:wAns.loadOutDate||'',time:wAns.loadOutTime||''}}),
   });
   if (error) { alert('Failed to save. Try again.'); return; }
-  await dbInsert('walls',{project_id:proj.id,name:'Wall 1',order_index:0,width_ft:inputs.widthFt,height_ft:inputs.heightFt,panel_id:panel.id,mount_type:inputs.support,panel_mode:inputs.panelMode,qty:inputs.qty,calculated_output:calc});
+  await dbInsert('walls',{project_id:proj.id,name:'Wall 1',order_index:0,width_ft:inputs.widthFt,height_ft:inputs.heightFt,panel_id:panel.id,mount_type:inputs.support,panel_mode:inputs.panelMode,qty:inputs.qty,calculated_output:calc,location_label:'Main'});
   await logActivity('project',proj.id,'created',{name:proj.name});
   closeWizard(); showToast('Project created!','success');
   openProject(proj.id);
@@ -258,6 +258,7 @@ function _renderProjView(mc) {
       <button class="tab-btn" id="tb-pack" onclick="window.Projects.showTab('pack')">Packing List</button>
       <button class="tab-btn" id="tb-walls" onclick="window.Projects.showTab('walls')">Walls</button>
       <button class="tab-btn" id="tb-team" onclick="window.Projects.showTab('team')">Team</button>
+      <button class="tab-btn" id="tb-tasks" onclick="window.Projects.showTab('tasks')">Tasks</button>
     </div>
     <div class="tab-panel active" id="tp-sum">${_sumTab(wall)}</div>
     <div class="tab-panel" id="tp-diag">${_diagTab(wall)}</div>
@@ -265,6 +266,7 @@ function _renderProjView(mc) {
     <div class="tab-panel" id="tp-pack">${_packTab(wall)}</div>
     <div class="tab-panel" id="tp-walls">${_wallsTab()}</div>
     <div class="tab-panel" id="tp-team"><div style="margin-bottom:12px"><button class="btn-add" onclick="window.Projects.openAssign()">+ Assign Member</button></div><div id="team-list"><div class="loading-state"><div class="spinner"></div></div></div></div>
+    <div class="tab-panel" id="tp-tasks"><div id="proj-tasks-wrap"><div class="loading-state"><div class="spinner"></div></div></div></div>
     <div class="sheet-overlay" id="aw-overlay"><div class="sheet"><div class="sheet-header"><div class="sheet-title">Add Wall</div><button class="modal-close" onclick="document.getElementById('aw-overlay').classList.remove('open')">✕</button></div><div id="aw-body"></div></div></div>`;
   CDM='data'; if (wall?.calculated_output) setTimeout(()=>_drawDiag(wall.calculated_output,'data'),100);
 }
@@ -294,17 +296,102 @@ function _countsTab(wall) {
   return html;
 }
 
+// ── PACKING HELPERS ────────────────────────────────────────
+let packView = 'wall'; // 'wall' | 'location' | 'project'
+
 function _packTab(wall) {
-  if (!wall?.calculated_output?.packing) return `<div class="empty-state"><div class="empty-title">No packing data</div></div>`;
-  const packing=wall.calculated_output.packing;
-  const catMap=new Map();
-  for (const [key,item] of Object.entries(packing)) {
-    const c=key.startsWith('Cases')?'Cases':key.startsWith('Panels')?'Panels':key.match(/ethercon|HDMI|SDI/)?'Data Cabling':key.match(/edison|powercon|white|blue/)?'Power':key.match(/Pipe and base|Rigging arm/)?'Ground Support':key.match(/bars|Megaclaw|feet/)?'Rigging':key.match(/Truss|Sched|Swivel/)?'Truss & Pipe':'System';
-    if (!catMap.has(c)) catMap.set(c,[]); catMap.get(c).push({key,...item});
+  if (!CW.some(w=>w.calculated_output?.packing)) return `<div class="empty-state"><div class="empty-title">No packing data</div></div>`;
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="seg-btn ${packView==='wall'?'active':''}" onclick="window.Projects.setPackView('wall')">By Wall</button>
+      <button class="seg-btn ${packView==='location'?'active':''}" onclick="window.Projects.setPackView('location')">By Location</button>
+      <button class="seg-btn ${packView==='project'?'active':''}" onclick="window.Projects.setPackView('project')">Full Project</button>
+    </div>
+    <div id="pack-content">${_renderPackContent()}</div>`;
+}
+
+function setPackView(view) {
+  packView = view;
+  document.querySelectorAll('#tp-pack .seg-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().includes(view==='wall'?'wall':view==='location'?'location':'project')));
+  const el = document.getElementById('pack-content');
+  if (el) el.innerHTML = _renderPackContent();
+}
+
+function _renderPackContent() {
+  if (packView === 'wall') return _packByWall();
+  if (packView === 'location') return _packByLocation();
+  return _packByProject();
+}
+
+function _packByWall() {
+  return CW.map(w => {
+    if (!w.calculated_output?.packing) return '';
+    const loc = w.location_label || 'Main';
+    return `<div style="margin-bottom:20px">
+      <div style="font-family:'Barlow',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        ${escH(w.name)} <span class="tag tag-blue" style="font-size:10px">${escH(loc)}</span>
+        <span style="font-size:12px;font-weight:400;color:var(--color-muted)">${w.width_ft}′×${w.height_ft}′ · qty ${w.qty}</span>
+      </div>
+      ${_renderPackSections(w.calculated_output.packing)}
+    </div>`;
+  }).join('');
+}
+
+function _packByLocation() {
+  // Group walls by location_label
+  const locMap = new Map();
+  CW.forEach(w => {
+    const loc = w.location_label || 'Main';
+    if (!locMap.has(loc)) locMap.set(loc, []);
+    locMap.get(loc).push(w);
+  });
+  let html = '';
+  for (const [loc, walls] of locMap.entries()) {
+    const combined = _combinePacking(walls);
+    html += `<div style="margin-bottom:24px">
+      <div style="font-family:'Barlow',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px;color:var(--color-accent)">📍 ${escH(loc)}</div>
+      <div style="font-size:12px;color:var(--color-muted);margin-bottom:10px">${walls.map(w=>escH(w.name)).join(', ')}</div>
+      ${_renderPackSections(combined)}
+    </div>`;
   }
-  let html='';
-  for (const [cat,items] of catMap.entries()) { html+=`<div style="background:#fff;border:1.5px solid var(--color-border-light);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm)"><div style="background:#f9fafb;border-bottom:1px solid var(--color-border-light);padding:9px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted)">${cat}</div>${items.map(item=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #f3f4f6"><div><div style="font-size:13px">${item.key}</div>${item.note?`<div style="font-size:11px;color:var(--color-muted)">${item.note}</div>`:''}</div><div style="font-family:'Barlow',sans-serif;font-size:18px;font-weight:700;color:var(--color-accent)">${item.qty}</div></div>`).join('')}</div>`; }
   return html;
+}
+
+function _packByProject() {
+  const combined = _combinePacking(CW);
+  return `<div style="margin-bottom:8px"><div style="font-family:'Barlow',sans-serif;font-size:16px;font-weight:700;margin-bottom:10px;color:var(--color-accent)">📦 Full Project — All Walls Combined</div>${_renderPackSections(combined)}</div>`;
+}
+
+function _combinePacking(walls) {
+  const combined = {};
+  walls.forEach(w => {
+    const packing = w.calculated_output?.packing;
+    if (!packing) return;
+    Object.entries(packing).forEach(([key, item]) => {
+      if (!combined[key]) combined[key] = { qty: 0, note: item.note || '' };
+      combined[key].qty += item.qty || 0;
+    });
+  });
+  return combined;
+}
+
+function _renderPackSections(packing) {
+  const catMap = new Map();
+  for (const [key, item] of Object.entries(packing)) {
+    const c = key.startsWith('Cases')?'Cases':key.startsWith('Panels')?'Panels':key.match(/ethercon|HDMI|SDI/)?'Data Cabling':key.match(/edison|powercon|white|blue/)?'Power':key.match(/Pipe and base|Rigging arm/)?'Ground Support':key.match(/bars|Megaclaw|feet/)?'Rigging':key.match(/Truss|Sched|Swivel/)?'Truss & Pipe':'System';
+    if (!catMap.has(c)) catMap.set(c, []); catMap.get(c).push({ key, ...item });
+  }
+  let html = '';
+  for (const [cat, items] of catMap.entries()) {
+    html += `<div style="background:#fff;border:1.5px solid var(--color-border-light);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm)">
+      <div style="background:#f9fafb;border-bottom:1px solid var(--color-border-light);padding:9px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted)">${cat}</div>
+      ${items.map(item => `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #f3f4f6">
+        <div><div style="font-size:13px">${item.key}</div>${item.note ? `<div style="font-size:11px;color:var(--color-muted)">${item.note}</div>` : ''}</div>
+        <div style="font-family:'Barlow',sans-serif;font-size:18px;font-weight:700;color:var(--color-accent)">${item.qty}</div>
+      </div>`).join('')}
+    </div>`;
+  }
+  return html || '<div style="color:var(--color-muted);font-size:13px;padding:10px">No items.</div>';
 }
 
 function _wallsTab() {
@@ -363,7 +450,7 @@ async function removeAssign(id) {
 // ── ADD WALL ────────────────────────────────────────────────
 async function addWall() {
   const panels=await fetchPanels();
-  document.getElementById('aw-body').innerHTML=`<div class="form-grid form-grid-2" style="gap:12px;margin-bottom:14px"><div class="form-field"><label class="form-label">Wall Name</label><input class="form-input" id="aw-n" value="Wall ${CW.length+1}"></div><div class="form-field"><label class="form-label">Panel</label><select class="form-select" id="aw-p">${panels.map(p=>`<option value="${p.id}" data-pitch="${p.panel_data?.pitch}" data-size="${p.panel_data?.size}" data-power="${p.panel_data?.power}">${escH(p.name)}</option>`).join('')}</select></div><div class="form-field"><label class="form-label">Width (ft)</label><input class="form-input" id="aw-w" type="number" placeholder="20" min="1" step="0.5"></div><div class="form-field"><label class="form-label">Height (ft)</label><input class="form-input" id="aw-h" type="number" placeholder="12" min="1" step="0.5"></div><div class="form-field"><label class="form-label">Mount</label><select class="form-select" id="aw-m"><option value="flown">Flown</option><option value="ground">Ground</option></select></div><div class="form-field"><label class="form-label">Panel Mode</label><select class="form-select" id="aw-pm"><option value="mixed">Mixed</option><option value="1000">1000mm tall</option><option value="500">500mm square</option></select></div><div class="form-field"><label class="form-label">Qty</label><input class="form-input" id="aw-q" type="number" value="1" min="1"></div><div class="form-field"><label class="form-label">Proc Distance (ft)</label><input class="form-input" id="aw-pd" type="number" value="30" min="0"></div></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="document.getElementById('aw-overlay').classList.remove('open')">Cancel</button><button class="btn btn-primary" onclick="window.Projects._saveWall()">Add Wall</button></div>`;
+  document.getElementById('aw-body').innerHTML=`<div class="form-grid form-grid-2" style="gap:12px;margin-bottom:14px"><div class="form-field"><label class="form-label">Wall Name</label><input class="form-input" id="aw-n" value="Wall ${CW.length+1}"></div><div class="form-field"><label class="form-label">Location Label</label><input class="form-input" id="aw-loc" placeholder="e.g. Stage A, Lobby, Main"></div><div class="form-field"><label class="form-label">Panel</label><select class="form-select" id="aw-p">${panels.map(p=>`<option value="${p.id}" data-pitch="${p.panel_data?.pitch}" data-size="${p.panel_data?.size}" data-power="${p.panel_data?.power}">${escH(p.name)}</option>`).join('')}</select></div><div class="form-field"><label class="form-label">Width (ft)</label><input class="form-input" id="aw-w" type="number" placeholder="20" min="1" step="0.5"></div><div class="form-field"><label class="form-label">Height (ft)</label><input class="form-input" id="aw-h" type="number" placeholder="12" min="1" step="0.5"></div><div class="form-field"><label class="form-label">Mount</label><select class="form-select" id="aw-m"><option value="flown">Flown</option><option value="ground">Ground</option></select></div><div class="form-field"><label class="form-label">Panel Mode</label><select class="form-select" id="aw-pm"><option value="mixed">Mixed</option><option value="1000">1000mm tall</option><option value="500">500mm square</option></select></div><div class="form-field"><label class="form-label">Qty</label><input class="form-input" id="aw-q" type="number" value="1" min="1"></div><div class="form-field"><label class="form-label">Proc Distance (ft)</label><input class="form-input" id="aw-pd" type="number" value="30" min="0"></div></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="document.getElementById('aw-overlay').classList.remove('open')">Cancel</button><button class="btn btn-primary" onclick="window.Projects._saveWall()">Add Wall</button></div>`;
   document.getElementById('aw-overlay').classList.add('open');
 }
 
@@ -371,7 +458,7 @@ async function _saveWall() {
   const ps=document.getElementById('aw-p'); const po=ps?.options[ps.selectedIndex];
   const inputs={widthFt:parseFloat(document.getElementById('aw-w')?.value)||20,heightFt:parseFloat(document.getElementById('aw-h')?.value)||12,panelMode:document.getElementById('aw-pm')?.value||'mixed',support:document.getElementById('aw-m')?.value||'flown',pitch:parseFloat(po?.dataset.pitch)||3.9,qty:parseInt(document.getElementById('aw-q')?.value)||1,procDist:parseFloat(document.getElementById('aw-pd')?.value)||30,powerDist:25,laptops:0,cameras:0,inv1000:po?.dataset.size==='1000'?60:0,inv500:po?.dataset.size==='500'?60:0,panel_id:ps?.value,panel_name:po?.text||'',panel_power:parseInt(po?.dataset.power)||150};
   const calc=runEngine(inputs);
-  await dbInsert('walls',{project_id:CP.id,name:document.getElementById('aw-n')?.value.trim()||`Wall ${CW.length+1}`,order_index:CW.length,width_ft:inputs.widthFt,height_ft:inputs.heightFt,panel_id:ps?.value,mount_type:inputs.support,panel_mode:inputs.panelMode,qty:inputs.qty,calculated_output:calc});
+  await dbInsert('walls',{project_id:CP.id,name:document.getElementById('aw-n')?.value.trim()||`Wall ${CW.length+1}`,order_index:CW.length,width_ft:inputs.widthFt,height_ft:inputs.heightFt,panel_id:ps?.value,mount_type:inputs.support,panel_mode:inputs.panelMode,qty:inputs.qty,calculated_output:calc,location_label:document.getElementById('aw-loc')?.value.trim()||'Main'});
   document.getElementById('aw-overlay').classList.remove('open');
   showToast('Wall added!','success'); openProject(CP.id);
 }
@@ -562,6 +649,34 @@ function fmtDate(d){if(!d)return'';return new Date(d+'T00:00:00').toLocaleDateSt
 function showToast(msg,type='success'){window.showToast?.(msg,type);}
 
 // ── GLOBAL EXPOSURE ─────────────────────────────────────────
+async function _loadProjTasks() {
+  const el = document.getElementById('proj-tasks-wrap'); if (!el) return;
+  const { data: tasks, error } = await supabase
+    .from('tasks')
+    .select('*,profiles!tasks_assigned_to_fkey(first_name,last_name)')
+    .eq('project_id', CP.id)
+    .order('due_date', { ascending: true, nullsFirst: false });
+  if (error || !tasks?.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px">
+      <div class="empty-icon">✅</div>
+      <div class="empty-title">No tasks yet</div>
+      <p class="empty-sub">Tasks assigned to this project will appear here.<br>Create them in the <strong>Tasks</strong> section.</p>
+    </div>`; return;
+  }
+  const priorityColor = { low:'#6b7280', medium:'#2563eb', high:'#d97706', urgent:'#dc2626' };
+  const statusLabel = { todo:'To Do', in_progress:'In Progress', review:'Review', done:'Done' };
+  el.innerHTML = `<div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Task</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Due</th></tr></thead>
+    <tbody>${tasks.map(t => `<tr>
+      <td><strong>${escH(t.title)}</strong>${t.description?`<div class="text-small text-muted">${escH(t.description.substring(0,60))}${t.description.length>60?'...':''}</div>`:''}</td>
+      <td><span style="color:${priorityColor[t.priority]||'#6b7280'};font-weight:600;font-size:12px;text-transform:uppercase">${t.priority||'—'}</span></td>
+      <td><span class="tag ${t.status==='done'?'tag-green':t.status==='in_progress'?'tag-blue':'tag-gray'}">${statusLabel[t.status]||t.status}</span></td>
+      <td class="text-small">${t.profiles?`${t.profiles.first_name} ${t.profiles.last_name}`:'Unassigned'}</td>
+      <td class="text-small">${t.due_date?new Date(t.due_date+'T00:00:00').toLocaleDateString():'—'}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
 function _addShowDay() {
   if (!wAns.showDays) wAns.showDays=[]; 
   wAns.showDays.push({date:'',startTime:'',endTime:''});
@@ -580,5 +695,5 @@ function _removeShowDay(i) {
 window.Projects={
   openWizard,closeWizard,openProject,deleteProject,setStatus,exportPDF,openCreateProposal,
   addWall,deleteWall,switchWall,switchDiag,showTab,openAssign,removeAssign,_loadTeam,
-  _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,_addShowDay,_removeShowDay,
+  _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,_addShowDay,_removeShowDay,setPackView,
 };
