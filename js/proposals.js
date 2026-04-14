@@ -19,6 +19,14 @@ export async function render(container) {
   const preselectedClientId = sessionStorage.getItem('proposal_client_id') || '';
   if (preselectedClientId) sessionStorage.removeItem('proposal_client_id');
 
+  // Check if we're coming from a lead conversion
+  const leadDataRaw = sessionStorage.getItem('proposal_from_lead');
+  let leadData = null;
+  if (leadDataRaw) {
+    try { leadData = JSON.parse(leadDataRaw); } catch(e) {}
+    sessionStorage.removeItem('proposal_from_lead');
+  }
+
   const statusGroups = {
     draft: proposals.filter(p => p.status === 'draft'),
     sent: proposals.filter(p => p.status === 'sent'),
@@ -98,6 +106,39 @@ export async function render(container) {
   if (preselectedClientId) {
     _wizAnswers.client_id = preselectedClientId;
     openWizard();
+  }
+
+  // Auto-open wizard pre-filled from lead conversion
+  if (leadData) {
+    _wizStep = 0; // reset step before setting answers
+    _wizAnswers = {
+      client_id: leadData.client_id || '',
+      title: leadData.title || '',
+      jobsite_address: leadData.jobsite_address || '',
+      jobsite_city: leadData.jobsite_city || '',
+      jobsite_state: leadData.jobsite_state || '',
+      jobsite_zip: leadData.jobsite_zip || '',
+      schedule: leadData.schedule || {},
+      wall_specs: leadData.wall_specs?.length ? leadData.wall_specs : [{ width:'', height:'', qty:1 }],
+      environment: leadData.environment === 'outdoor' ? 'Outdoor' : 'Indoor',
+      support_method: leadData.support_method || '',
+      rigging: leadData.rigging_responsibility || '',
+      additional_services: leadData.additional_services || [],
+      scope_notes: leadData.scope_notes || '',
+      _lead_id: leadData.lead_id || '',
+    };
+    // Show a banner so user knows it's pre-filled
+    const banner = document.createElement('div');
+    banner.className = 'alert alert-ok';
+    banner.style.cssText = 'margin-bottom:16px;display:flex;align-items:center;gap:10px';
+    banner.innerHTML = '✓ Pre-filled from lead. Review each step and adjust as needed, then create the proposal.';
+    container.insertBefore(banner, container.firstChild);
+    openWizard();
+    // Skip past client (step 0) and title (step 1) since already filled from lead
+    if (_wizAnswers.client_id && _wizAnswers.title) {
+      _wizStep = 2; // start at jobsite
+      _renderWizStep();
+    }
   }
 }
 
