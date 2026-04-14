@@ -4,7 +4,7 @@
 // ============================================================
 
 import { supabase, dbInsert, dbUpdate, dbDelete, logActivity } from './supabase.js';
-import { getProfile, isAdmin, canManageLeads } from './auth.js';
+import { getProfile, isAdmin } from './auth.js';
 
 // ============================================================
 // CONSTANTS
