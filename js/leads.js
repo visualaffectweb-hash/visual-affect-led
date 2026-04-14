@@ -297,7 +297,7 @@ function _renderLeadDetail(mc) {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
           <button class="btn" onclick="window.navigateTo('leads')" style="font-size:12px;padding:5px 11px">← Leads</button>
           <span class="tag ${_stag(l.status)}" id="lead-status-badge">${l.status}</span>
-          ${l.status==='qualified'?`<button class="btn btn-primary" onclick="window.Leads.convertToProposal('${l.id}')">→ Create Proposal</button>`:''}
+          ${!['converted','lost'].includes(l.status)?`<button class="btn btn-primary" onclick="window.Leads.convertToProposal('${l.id}')">→ Create Proposal</button>`:''}
         </div>
         <div style="font-family:'Barlow',sans-serif;font-size:24px;font-weight:800">${escH(l.first_name)} ${escH(l.last_name)}</div>
         <div class="text-small text-muted" style="margin-top:3px">
@@ -826,16 +826,10 @@ async function updateStatus(id, status) {
   const badge = document.getElementById('lead-status-badge');
   if (badge) { badge.className = `tag ${_stag(status)}`; badge.textContent = status; }
 
-  // Show convert button if qualified
-  if (status === 'qualified') {
-    const header = badge?.closest('div');
-    if (header && !header.querySelector('[onclick*="convertToProposal"]')) {
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-primary';
-      btn.textContent = '→ Create Proposal';
-      btn.setAttribute('onclick', `window.Leads.convertToProposal('${id}')`);
-      header.appendChild(btn);
-    }
+  // Show/hide convert button based on status
+  const existingConvert = document.querySelector('[onclick*="convertToProposal"]');
+  if (existingConvert) {
+    existingConvert.style.display = ['converted','lost'].includes(status) ? 'none' : '';
   }
 
   await logActivity('lead', id, 'status_changed', { status });
