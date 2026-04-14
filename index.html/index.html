@@ -106,7 +106,7 @@
     <div class="topbar-left">
       <img id="logo-topbar" src="assets/logo-white.png" alt="VA"
            onerror="this.style.display='none'"
-           onclick="navigateTo('projects')" style="cursor:pointer">
+           onclick="navigateTo('leads')" style="cursor:pointer">
       <div class="topbar-divider"></div>
       <span class="topbar-appname">LED Planning Tool</span>
     </div>
@@ -123,20 +123,23 @@
 
     <!-- SIDEBAR -->
     <nav class="sidebar" id="sidebar">
-      <div class="sb-item" data-section="projects" onclick="navigateTo('projects')">
-        <span class="sb-icon">📐</span> Projects
-      </div>
-      <div class="sb-item" data-section="clients" onclick="navigateTo('clients')">
-        <span class="sb-icon">👥</span> Clients
-      </div>
-      <div class="sb-item" data-section="inventory" onclick="navigateTo('inventory')">
-        <span class="sb-icon">📦</span> Inventory
+      <div class="sb-item" data-section="leads" onclick="navigateTo('leads')">
+        <span class="sb-icon">📋</span> Leads
       </div>
       <div class="sb-item" data-section="proposals" onclick="navigateTo('proposals')">
         <span class="sb-icon">📄</span> Proposals
       </div>
-      <div class="sb-item" data-section="logistics" onclick="navigateTo('logistics')">
-        <span class="sb-icon">🗓</span> Logistics
+      <div class="sb-item" data-section="projects" onclick="navigateTo('projects')">
+        <span class="sb-icon">📐</span> Projects
+      </div>
+      <div class="sb-item" data-section="labor" onclick="navigateTo('labor')">
+        <span class="sb-icon">👷</span> Labor
+      </div>
+      <div class="sb-item" data-section="inventory" onclick="navigateTo('inventory')">
+        <span class="sb-icon">📦</span> Inventory
+      </div>
+      <div class="sb-item" data-section="clients" onclick="navigateTo('clients')">
+        <span class="sb-icon">👥</span> Clients
       </div>
       <div class="sb-item" data-section="tasks" onclick="navigateTo('tasks')">
         <span class="sb-icon">✅</span> Tasks
@@ -366,7 +369,7 @@
     }
 
     showScreen('screen-app');
-    navigateTo('projects');
+    navigateTo('leads');
   }
 
   // ── INIT ───────────────────────────────────────────────────
