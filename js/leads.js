@@ -179,7 +179,7 @@ function filterStatus(status) {
 
 async function _fetchLeads() {
   const { data, error } = await supabase.from('leads')
-    .select('*,lead_assignments(id,user_id,profiles(first_name,last_name))')
+    .select('*,lead_assignments(id,user_id,profiles!lead_assignments_user_id_fkey(first_name,last_name))')
     .order('created_at', { ascending: false });
   if (!error) return data || [];
   // Fallback without join
@@ -198,7 +198,7 @@ async function _fetchLead(id) {
   if (!id) return null;
   // Try with assignments join first
   const { data, error } = await supabase.from('leads')
-    .select('*,lead_assignments(id,user_id,profiles(first_name,last_name))')
+    .select('*,lead_assignments(id,user_id,profiles!lead_assignments_user_id_fkey(first_name,last_name))')
     .eq('id', id).single();
   if (data) return data;
   // Fallback: fetch without join
@@ -802,7 +802,12 @@ async function doAssign() {
   const { error } = await supabase.from('lead_assignments').insert({
     lead_id: _currentLead.id, user_id: userId, assigned_by: getProfile().id,
   });
-  if (error) { showToast('Failed to assign.','error'); return; }
+  if (error) {
+    console.error('[Assign error]', error);
+    if (error.code === '23505') { showToast('This person is already assigned.','error'); }
+    else { showToast(`Failed to assign: ${error.message}`,'error'); }
+    return;
+  }
   document.getElementById('assign-modal').classList.remove('open');
   showToast('Assigned!','success');
   const lead = await _fetchLead(_currentLead.id);
