@@ -114,8 +114,8 @@ function _renderStep() {
   else if (st.type==='num') inp=`<input class="form-input" id="wi" type="number" placeholder="${st.ph||''}" min="${st.min||0}" value="${wAns[st.id]||''}" style="margin-top:10px;width:100%">`;
   else if (st.type==='opts') { const sel=wAns[st.id]||''; inp=`<div class="option-grid">${st.opts.map(o=>`<button class="option-btn ${sel===o?'selected':''}" onclick="window.Projects._wSel(this,'${st.id}','${o}')">${o}</button>`).join('')}</div>`; }
   else if (st.type==='dims') inp=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label class="form-label">Width (ft)</label><input class="form-input" id="wW" type="number" placeholder="20" min="1" step="0.5" value="${wAns.widthFt||''}"></div><div><label class="form-label">Height (ft)</label><input class="form-input" id="wH" type="number" placeholder="12" min="1" step="0.5" value="${wAns.heightFt||''}"></div></div>`;
-  else if (st.type==='panel') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${wPanels.map(p=>`<button class="option-btn ${sel==p.id?'selected':''}" onclick="window.Projects._wSel(this,'panel',${p.id})"><strong>${escH(p.name)}</strong><div class="option-sub">${escH(p.manufacturer||'')} · ${p.panel_data?.pitch||'?'}mm<br>${p.panel_data?.size==='1000'?'1000×500mm':'500×500mm'} · ${p.qty_available} in stock</div></button>`).join('')}</div>`; }
-  else if (st.type==='client') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="margin-top:10px"><button class="option-btn ${!sel?'selected':''}" onclick="window.Projects._wSel(this,'client','')">Skip for now</button>${wClients.map(c=>`<button class="option-btn ${sel==c.id?'selected':''}" onclick="window.Projects._wSel(this,'client','${c.id}')"><strong>${escH(c.company_name)}</strong><div class="option-sub">${escH(c.contact_name||'')}</div></button>`).join('')}</div>`; }
+  else if (st.type==='panel') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${wPanels.map(p=>`<button class="option-btn ${sel==p.id?'selected':''}" data-panel-id="${p.id}" onclick="window.Projects._wSelPanel(this)"><strong>${escH(p.name)}</strong><div class="option-sub">${escH(p.manufacturer||'')} · ${p.panel_data?.pitch||'?'}mm<br>${p.panel_data?.size==='1000'?'1000×500mm':'500×500mm'} · ${p.qty_available} in stock</div></button>`).join('')}</div>`; }
+  else if (st.type==='client') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="margin-top:10px"><button class="option-btn ${!sel?'selected':''}" data-client-id="" onclick="window.Projects._wSelClient(this)">Skip for now</button>${wClients.map(c=>`<button class="option-btn ${sel==c.id?'selected':''}" data-client-id="${c.id}" onclick="window.Projects._wSelClient(this)"><strong>${escH(c.company_name)}</strong><div class="option-sub">${escH(c.contact_name||'')}</div></button>`).join('')}</div>`; }
   else if (st.type==='dates') inp=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label class="form-label">Event Start</label><input class="form-input" id="wS" type="date" value="${wAns.eventStart||''}"></div><div><label class="form-label">Event End</label><input class="form-input" id="wE" type="date" value="${wAns.eventEnd||''}"></div></div>`;
   document.getElementById('wiz-body').innerHTML=`<div style="display:flex;flex-direction:column;gap:14px"><div class="question-bubble"><div class="question-label">Question ${wStep+1} of ${total}</div>${st.q}${st.hint?`<div class="question-hint">${st.hint}</div>`:''}</div><div>${inp}</div></div>`;
   let nav=wStep>0?`<button class="btn-wizard-back" onclick="window.Projects._wBack()">← Back</button>`:'';
@@ -125,6 +125,8 @@ function _renderStep() {
 }
 
 function _wSel(btn,id,val) { btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); wAns[id]=val; }
+function _wSelPanel(btn) { const id=btn.dataset.panelId; btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); wAns['panel']=id; }
+function _wSelClient(btn) { const id=btn.dataset.clientId; btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); wAns['client']=id; }
 
 function _wGetCur() {
   const st=STEPS[wStep];
@@ -521,5 +523,5 @@ function showToast(msg,type='success'){window.showToast?.(msg,type);}
 window.Projects={
   openWizard,closeWizard,openProject,deleteProject,setStatus,exportPDF,openCreateProposal,
   addWall,deleteWall,switchWall,switchDiag,showTab,openAssign,removeAssign,_loadTeam,
-  _wSel,_wNext,_wBack,_wFinish,_saveWall,_doAssign,
+  _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,
 };
