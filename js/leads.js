@@ -251,8 +251,8 @@ async function saveLead() {
     budget_range:document.getElementById('la-br')?.value||'',
     notes:_v('la-notes'), status:'new', created_by:getProfile().id,
   };
-  const { data: lead, error } = await dbInsert('leads', data);
-  if (error) { _msg('la-msg','Failed to save.',true); return; }
+  const { data: lead, error } = await supabase.from('leads').insert(data).select().single();
+  if (error) { _msg('la-msg','Failed to save.',true); console.error(error); return; }
   await logActivity('lead', lead.id, 'created', { name:`${fn} ${ln}` });
   document.getElementById('lead-add-modal').classList.remove('open');
   showToast('Lead added!', 'success');
