@@ -253,27 +253,43 @@ function _renderWizStep() {
     ).join('')}</div>`;
   } else if (st.type === 'client') {
     const sel = _wizAnswers.client_id || '';
+    const selClient = _wizClients.find(c => c.id === sel);
     inp = `
-      <div class="option-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-top:10px">
-        ${_wizClients.map(c => `
-          <button class="option-btn ${sel===c.id?'selected':''}" data-client-id="${c.id}" onclick="window.Proposals._wSelClient(this)">
-            <strong>${escH(c.company_name)}</strong>
-            <div class="option-sub">${escH(c.contact_name||'')}${c.email?` · ${escH(c.email)}`:''}</div>
-          </button>`).join('')}
-        <button class="option-btn ${sel==='new'?'selected':''}" data-client-id="new" onclick="window.Proposals._wSelClient(this)">
-          <strong>+ New Client</strong>
-          <div class="option-sub">Create a new client record</div>
-        </button>
-      </div>
-      ${sel === 'new' ? `
-        <div style="margin-top:14px;padding:14px;background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px">
-          <div class="form-grid form-grid-2" style="gap:10px">
-            <div class="form-field"><label class="form-label">Company Name *</label><input class="form-input" id="nc-company" placeholder="Acme Events"></div>
-            <div class="form-field"><label class="form-label">Contact Name</label><input class="form-input" id="nc-contact" placeholder="Jane Smith"></div>
-            <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="nc-email" type="email" placeholder="jane@acme.com"></div>
-            <div class="form-field"><label class="form-label">Phone</label><input class="form-input" id="nc-phone" type="tel" placeholder="(555) 000-0000"></div>
-          </div>
-        </div>` : ''}`;
+      <div style="margin-top:10px">
+        <div style="position:relative;margin-bottom:10px">
+          <input class="form-input" id="client-search" placeholder="Search clients by name..."
+            value="${selClient ? escH(selClient.company_name) : ''}"
+            oninput="window.Proposals._filterClients(this.value)"
+            style="padding-right:36px">
+          <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--color-muted);pointer-events:none">🔍</span>
+        </div>
+        <div id="client-results" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto">
+          ${_wizClients.map(c => `
+            <button class="option-btn ${sel===c.id?'selected':''}" data-client-id="${c.id}"
+              onclick="window.Proposals._wSelClient(this)"
+              style="text-align:left;padding:10px 14px">
+              <strong>${escH(c.company_name)}</strong>
+              <div class="option-sub">${escH(c.contact_name||'')}${c.email?` · ${escH(c.email)}`:''}</div>
+            </button>`).join('')}
+        </div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--color-border-light)">
+          <button class="option-btn ${sel==='new'?'selected':''}" data-client-id="new"
+            onclick="window.Proposals._wSelClient(this)"
+            style="text-align:left;padding:10px 14px;width:100%">
+            <strong>+ Create New Client</strong>
+            <div class="option-sub">Add a new client record</div>
+          </button>
+        </div>
+        ${sel === 'new' ? `
+          <div style="margin-top:10px;padding:14px;background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px">
+            <div class="form-grid form-grid-2" style="gap:10px">
+              <div class="form-field"><label class="form-label">Company Name *</label><input class="form-input" id="nc-company" placeholder="Acme Events"></div>
+              <div class="form-field"><label class="form-label">Contact Name</label><input class="form-input" id="nc-contact" placeholder="Jane Smith"></div>
+              <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="nc-email" type="email" placeholder="jane@acme.com"></div>
+              <div class="form-field"><label class="form-label">Phone</label><input class="form-input" id="nc-phone" type="tel" placeholder="(555) 000-0000"></div>
+            </div>
+          </div>` : ''}
+      </div>`;
   } else if (st.type === 'jobsite') {
     inp = `
       <div style="margin-top:10px">
@@ -332,7 +348,7 @@ function _renderWizStep() {
     const isIndoor = env === 'Indoor';
     const opts = isIndoor
       ? ['Fly to ceiling rigging points', 'Ground support — pipe & base riser', 'Ground support — truss structure (case by case)']
-      : ['Mobile stage fly', 'Array towers', 'Ground support on riser', 'Custom truss build'];
+      : ['Flown to Mobile Stage', 'Flown to Array Towers', 'Ground support on riser', 'Custom truss build'];
     inp = `
       <div class="option-grid" style="margin-top:10px">
         ${opts.map(o => `<button class="option-btn ${sel===o?'selected':''}" onclick="window.Proposals._wSel(this,'support_method','${o}')">${o}</button>`).join('')}
@@ -512,7 +528,7 @@ function _autoGenerateLineItems() {
   items.push({ name: 'Power Cabling Package', qty: 1, unit: 'lot', unit_price: 0, category: 'Cabling' });
 
   // Support structure
-  if (support.includes('fly') || support.includes('ceiling')) {
+  if (support.includes('fly') || support.includes('ceiling') || support.includes('Flown')) {
     items.push({ name: 'Fly Bars', qty: walls.length * 2, unit: 'ea', unit_price: 0, category: 'Rigging' });
     items.push({ name: 'Megaclaws', qty: walls.length * 2, unit: 'ea', unit_price: 0, category: 'Rigging' });
     if (!rigging.includes('Client')) {
@@ -549,6 +565,17 @@ function _autoGenerateLineItems() {
 }
 
 // ── WIZARD NAVIGATION ────────────────────────────────────────
+
+function _filterClients(query) {
+  const q = query.toLowerCase().trim();
+  const results = document.getElementById('client-results');
+  if (!results) return;
+  results.querySelectorAll('.option-btn').forEach(btn => {
+    const name = btn.querySelector('strong')?.textContent?.toLowerCase() || '';
+    const sub = btn.querySelector('.option-sub')?.textContent?.toLowerCase() || '';
+    btn.style.display = (!q || name.includes(q) || sub.includes(q)) ? '' : 'none';
+  });
+}
 
 function _wSel(btn, id, val) {
   btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
@@ -785,6 +812,7 @@ async function _wFinish() {
     client_id: clientId || null,
     owner_id: getProfile().id,
     status: 'draft',
+    lead_id: _wizAnswers._lead_id || null,
     line_items: _wizLineItems,
     tax_rate: taxRate,
     subtotal,
@@ -820,7 +848,7 @@ function _buildJobType() {
   const env = _wizAnswers.environment || 'Indoor';
   const support = _wizAnswers.support_method || '';
   if (env === 'Outdoor') return 'outdoor';
-  if (support.includes('fly') || support.includes('ceiling')) return 'indoor_fly';
+  if (support.includes('fly') || support.includes('ceiling') || support.includes('Flown')) return 'indoor_fly';
   if (support.includes('riser') || support.includes('pipe')) return 'indoor_ground_riser';
   if (support.includes('truss')) return 'indoor_ground_truss';
   return 'indoor_fly';
@@ -875,8 +903,8 @@ function _renderProposalView(mc) {
             ${['draft','sent','changes_requested','approved','invoice','deposit_pending','paid','cancelled'].map(s =>
               `<option value="${s}" ${p.status===s?'selected':''}>${statusLabels[s]}</option>`).join('')}
           </select>` : ''}
-        ${p.status === 'draft' || p.status === 'sent' ? `<button class="btn" onclick="window.Proposals.copyApprovalLink('${p.approval_token}')">🔗 Copy Approval Link</button>` : ''}
-        ${p.status === 'approved' ? `<button class="btn btn-green" onclick="window.Proposals.convertToProject('${p.id}')">→ Create Project</button>` : ''}
+        ${p.status === 'draft' || p.status === 'sent' ? `<button class="btn" onclick="window.Proposals.copyApprovalLink('${p.id}')">🔗 Copy Approval Link</button>` : ''}
+        ${['approved','invoice','deposit_pending'].includes(p.status) && !p.project_id ? `<button class="btn btn-green" onclick="window.Proposals.convertToProject('${p.id}')">→ Create Project</button>` : p.project_id ? `<button class="btn btn-blue" onclick="window.navigateTo('projects');setTimeout(()=>window.Projects?.openProject?.('${p.project_id}'),300)">View Project →</button>` : ''}
         <button class="btn btn-blue" onclick="window.Proposals.exportPDF('${p.id}')">⬇ PDF</button>
       </div>
     </div>
@@ -973,6 +1001,70 @@ function _renderProposalView(mc) {
     <!-- ACTIVITY TAB -->
     <div class="tab-panel" id="pp-activity">
       <div id="prop-activity-wrap"><div class="loading-state"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Job History Panel -->
+    <div id="job-history-panel" style="margin-top:20px"></div>`;
+
+  // Load job history async
+  _loadJobHistory(p);
+}
+
+async function _loadJobHistory(p) {
+  const el = document.getElementById('job-history-panel');
+  if (!el) return;
+
+  const rows = [];
+
+  // Lead
+  if (p.lead_id) {
+    const { data: lead } = await supabase.from('leads').select('id,first_name,last_name,status,created_at').eq('id', p.lead_id).single();
+    if (lead) rows.push({
+      icon:'📋', label:'Lead', title:`${lead.first_name} ${lead.last_name}`,
+      status:lead.status, date:new Date(lead.created_at).toLocaleDateString(),
+      action:`window.navigateTo('leads');setTimeout(()=>window.Leads?.openLead?.('${lead.id}'),300)`,
+    });
+  }
+
+  // This proposal
+  rows.push({
+    icon:'📄', label:'Proposal', title:p.title,
+    status:p.status, date:new Date(p.created_at).toLocaleDateString(),
+    action:null, current:true,
+  });
+
+  // Project
+  if (p.project_id) {
+    const { data: proj } = await supabase.from('projects').select('id,name,status,created_at').eq('id', p.project_id).single();
+    if (proj) rows.push({
+      icon:'📐', label:'Project', title:proj.name,
+      status:proj.status, date:new Date(proj.created_at).toLocaleDateString(),
+      action:`window.navigateTo('projects');setTimeout(()=>window.Projects?.openProject?.('${proj.id}'),300)`,
+    });
+  }
+
+  if (rows.length <= 1) { el.innerHTML = ''; return; }
+
+  const statusColors = { new:'#6b7280',draft:'#6b7280',sent:'#2563eb',approved:'#166534',converted:'#166534',confirmed:'#2563eb',active:'#166534',planning:'#d97706',completed:'#374151',paid:'#166534',lost:'#dc2626',cancelled:'#dc2626' };
+
+  el.innerHTML = `
+    <div style="background:#fff;border:1.5px solid var(--color-border-light);border-radius:10px;padding:16px;box-shadow:var(--shadow-sm)">
+      <div style="font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;color:var(--color-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Job History</div>
+      <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap">
+        ${rows.map((r,i) => `
+          <div style="display:flex;align-items:center;gap:0">
+            <div style="background:${r.current?'#f0f9ff':'#f9fafb'};border:1.5px solid ${r.current?'#2563eb':'var(--color-border-light)'};border-radius:8px;padding:10px 14px;min-width:160px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:3px">${r.icon} ${r.label}</div>
+              <div style="font-weight:600;font-size:13px;margin-bottom:3px">${escH(r.title)}</div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${statusColors[r.status]||'#6b7280'}"></span>
+                <span style="font-size:11px;color:var(--color-muted)">${r.status} · ${r.date}</span>
+              </div>
+              ${r.action?`<button onclick="${r.action}" class="btn" style="margin-top:8px;font-size:11px;padding:4px 9px;width:100%">View →</button>`:''}
+            </div>
+            ${i<rows.length-1?`<div style="width:24px;height:2px;background:var(--color-border-light);flex-shrink:0"></div>`:''}
+          </div>`).join('')}
+      </div>
     </div>`;
 }
 
@@ -1132,9 +1224,25 @@ async function deleteProposal(id) {
   window.navigateTo('proposals');
 }
 
-function copyApprovalLink(token) {
-  const url = `${window.location.origin}/client.html?token=${token}`;
-  navigator.clipboard.writeText(url).then(()=>showToast('Approval link copied!','success')).catch(()=>showToast('URL: '+url,'info'));
+async function copyApprovalLink(proposalId) {
+  let p = _currentProposal?.id === proposalId ? _currentProposal : await fetchProposal(proposalId);
+  if (!p) return;
+
+  // Generate token if missing
+  if (!p.approval_token) {
+    const token = crypto.randomUUID();
+    await supabase.from('proposals').update({ approval_token: token }).eq('id', proposalId);
+    p.approval_token = token;
+    if (_currentProposal?.id === proposalId) _currentProposal.approval_token = token;
+  }
+
+  const url = `${window.location.origin}/client.html?token=${p.approval_token}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('Approval link copied!','success');
+  } catch(e) {
+    prompt('Copy this approval link:', url);
+  }
 }
 
 // ============================================================
@@ -1197,8 +1305,10 @@ async function convertToProject(proposalId) {
 
   showToast('Project created! Task list generated.', 'success');
 
+  // Link proposal to project
+  await supabase.from('proposals').update({ project_id: project.id }).eq('id', proposalId).catch(()=>{});
+
   // Navigate to the new project
-  const { default: { render: renderProjects } } = await import('./projects.js').catch(() => ({}));
   window.navigateTo('projects');
 }
 
@@ -1296,6 +1406,15 @@ async function exportPDF(id) {
   let p = _currentProposal?.id === id ? _currentProposal : await fetchProposal(id);
   if (!p) return;
 
+  // Load jsPDF if not already loaded
+  if (!window.jspdf) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
   const { jsPDF } = window.jspdf; if (!jsPDF) { alert('PDF library not loaded.'); return; }
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210, M = 16, cw = W - M * 2; let y = M;
@@ -1416,7 +1535,7 @@ window.Proposals = {
   sendProposal, convertToInvoice, markPaid, deleteProposal,
   convertToProject, copyApprovalLink, exportPDF, updateStatus,
   showPTab, addPropLineItem, removePropLI, savePropTotals, saveRiggingReq,
-  _wSel, _wSelClient, _toggleService, _wNext, _wBack, _wFinish,
+  _wSel, _wSelClient, _filterClients, _toggleService, _wNext, _wBack, _wFinish,
   _addShowDay, _removeShowDay, _addWall, _removeWall,
   _updatePropLI, _updateLI, _removeLI, _addReviewItem, _updateTotals, _calcDistance,
 };
