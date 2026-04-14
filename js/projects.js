@@ -115,8 +115,36 @@ function _renderStep() {
   else if (st.type==='opts') { const sel=wAns[st.id]||''; inp=`<div class="option-grid">${st.opts.map(o=>`<button class="option-btn ${sel===o?'selected':''}" onclick="window.Projects._wSel(this,'${st.id}','${o}')">${o}</button>`).join('')}</div>`; }
   else if (st.type==='dims') inp=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label class="form-label">Width (ft)</label><input class="form-input" id="wW" type="number" placeholder="20" min="1" step="0.5" value="${wAns.widthFt||''}"></div><div><label class="form-label">Height (ft)</label><input class="form-input" id="wH" type="number" placeholder="12" min="1" step="0.5" value="${wAns.heightFt||''}"></div></div>`;
   else if (st.type==='panel') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${wPanels.map(p=>`<button class="option-btn ${sel==p.id?'selected':''}" data-panel-id="${p.id}" onclick="window.Projects._wSelPanel(this)"><strong>${escH(p.name)}</strong><div class="option-sub">${escH(p.manufacturer||'')} · ${p.panel_data?.pitch||'?'}mm<br>${p.panel_data?.size==='1000'?'1000×500mm':'500×500mm'} · ${p.qty_available} in stock</div></button>`).join('')}</div>`; }
-  else if (st.type==='client') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="margin-top:10px"><button class="option-btn ${!sel?'selected':''}" data-client-id="" onclick="window.Projects._wSelClient(this)">Skip for now</button>${wClients.map(c=>`<button class="option-btn ${sel==c.id?'selected':''}" data-client-id="${c.id}" onclick="window.Projects._wSelClient(this)"><strong>${escH(c.company_name)}</strong><div class="option-sub">${escH(c.contact_name||'')}</div></button>`).join('')}</div>`; }
-  else if (st.type==='dates') inp=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label class="form-label">Event Start</label><input class="form-input" id="wS" type="date" value="${wAns.eventStart||''}"></div><div><label class="form-label">Event End</label><input class="form-input" id="wE" type="date" value="${wAns.eventEnd||''}"></div></div>`;
+  else if (st.type==='client') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="margin-top:10px"><button class="option-btn ${(!sel||sel==='__skip__')?'selected':''}" data-client-id="__skip__" onclick="window.Projects._wSelClient(this)">Skip for now</button>${wClients.map(c=>`<button class="option-btn ${sel==c.id?'selected':''}" data-client-id="${c.id}" onclick="window.Projects._wSelClient(this)"><strong>${escH(c.company_name)}</strong><div class="option-sub">${escH(c.contact_name||'')}</div></button>`).join('')}</div>`; }
+  else if (st.type==='dates') inp=`<div style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
+    <div style="background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px;padding:14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:10px">Load In</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="form-label">Date</label><input class="form-input" id="wLoadInDate" type="date" value="${wAns.loadInDate||''}"></div>
+        <div><label class="form-label">Start Time</label><input class="form-input" id="wLoadInTime" type="time" value="${wAns.loadInTime||''}"></div>
+      </div>
+    </div>
+    <div style="background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px;padding:14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:10px">Show Days</div>
+      <div id="show-days-list" style="display:flex;flex-direction:column;gap:8px">
+        ${(wAns.showDays||[{date:'',startTime:'',endTime:''}]).map((sd,i)=>`
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+            <div><label class="form-label">Date</label><input class="form-input show-day-date" type="date" data-idx="${i}" value="${sd.date||''}"></div>
+            <div><label class="form-label">Doors / Start</label><input class="form-input show-day-start" type="time" data-idx="${i}" value="${sd.startTime||''}"></div>
+            <div><label class="form-label">Show End</label><input class="form-input show-day-end" type="time" data-idx="${i}" value="${sd.endTime||''}"></div>
+            <div><button class="btn btn-danger" style="padding:8px 10px;font-size:12px;margin-top:18px" onclick="window.Projects._removeShowDay(${i})">✕</button></div>
+          </div>`).join('')}
+      </div>
+      <button class="btn" style="margin-top:10px;font-size:12px" onclick="window.Projects._addShowDay()">+ Add Show Day</button>
+    </div>
+    <div style="background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px;padding:14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:10px">Load Out</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="form-label">Date</label><input class="form-input" id="wLoadOutDate" type="date" value="${wAns.loadOutDate||''}"></div>
+        <div><label class="form-label">Start Time</label><input class="form-input" id="wLoadOutTime" type="time" value="${wAns.loadOutTime||''}"></div>
+      </div>
+    </div>
+  </div>`;
   document.getElementById('wiz-body').innerHTML=`<div style="display:flex;flex-direction:column;gap:14px"><div class="question-bubble"><div class="question-label">Question ${wStep+1} of ${total}</div>${st.q}${st.hint?`<div class="question-hint">${st.hint}</div>`:''}</div><div>${inp}</div></div>`;
   let nav=wStep>0?`<button class="btn-wizard-back" onclick="window.Projects._wBack()">← Back</button>`:'';
   nav+=wStep<total-1?`<button class="btn-wizard-next" onclick="window.Projects._wNext()">Continue →</button>`:`<button class="btn-wizard-finish" onclick="window.Projects._wFinish()">✓ Create Project</button>`;
@@ -126,13 +154,27 @@ function _renderStep() {
 
 function _wSel(btn,id,val) { btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); wAns[id]=val; }
 function _wSelPanel(btn) { const id=btn.dataset.panelId; btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); wAns['panel']=id; }
-function _wSelClient(btn) { const id=btn.dataset.clientId; btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); wAns['client']=id; }
+function _wSelClient(btn) { const id=btn.dataset.clientId; btn.closest('.option-grid').querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); wAns['client']=id==='__skip__'?'':id; }
 
 function _wGetCur() {
   const st=STEPS[wStep];
   if (['opts','panel','client'].includes(st.type)) return wAns[st.id]!==undefined?'ok':null;
   if (st.type==='dims') { const w=document.getElementById('wW')?.value?.trim(),h=document.getElementById('wH')?.value?.trim(); if (!w||!h) return null; wAns.widthFt=parseFloat(w); wAns.heightFt=parseFloat(h); return 'ok'; }
-  if (st.type==='dates') { wAns.eventStart=document.getElementById('wS')?.value||''; wAns.eventEnd=document.getElementById('wE')?.value||''; return 'ok'; }
+  if (st.type==='dates') {
+    wAns.loadInDate=document.getElementById('wLoadInDate')?.value||'';
+    wAns.loadInTime=document.getElementById('wLoadInTime')?.value||'';
+    wAns.loadOutDate=document.getElementById('wLoadOutDate')?.value||'';
+    wAns.loadOutTime=document.getElementById('wLoadOutTime')?.value||'';
+    // collect show days
+    const dates=[...document.querySelectorAll('.show-day-date')].map(el=>el.value||'');
+    const starts=[...document.querySelectorAll('.show-day-start')].map(el=>el.value||'');
+    const ends=[...document.querySelectorAll('.show-day-end')].map(el=>el.value||'');
+    wAns.showDays=dates.map((d,i)=>({date:d,startTime:starts[i]||'',endTime:ends[i]||''}));
+    // set eventStart/eventEnd for DB compatibility
+    wAns.eventStart=wAns.loadInDate||wAns.showDays[0]?.date||'';
+    wAns.eventEnd=wAns.loadOutDate||wAns.showDays[wAns.showDays.length-1]?.date||'';
+    return 'ok';
+  }
   const el=document.getElementById('wi'); return el?el.value.trim():null;
 }
 
@@ -164,7 +206,7 @@ async function _wFinish() {
   const {data:proj,error} = await dbInsert('projects',{
     name:wAns.name||'Untitled', address:wAns.address||'',
     client_id:wAns.client||null, owner_id:profile.id, status:'planning',
-    event_start_date:wAns.eventStart||null, event_end_date:wAns.eventEnd||null,
+    event_start_date:wAns.eventStart||null, event_end_date:wAns.eventEnd||null, notes:JSON.stringify({loadIn:{date:wAns.loadInDate||'',time:wAns.loadInTime||''},showDays:wAns.showDays||[],loadOut:{date:wAns.loadOutDate||'',time:wAns.loadOutTime||''}}),
   });
   if (error) { alert('Failed to save. Try again.'); return; }
   await dbInsert('walls',{project_id:proj.id,name:'Wall 1',order_index:0,width_ft:inputs.widthFt,height_ft:inputs.heightFt,panel_id:panel.id,mount_type:inputs.support,panel_mode:inputs.panelMode,qty:inputs.qty,calculated_output:calc});
@@ -231,7 +273,7 @@ function _sumTab(wall) {
   if (!wall?.calculated_output) return `<div class="empty-state"><div class="empty-title">No wall data</div></div>`;
   const out=wall.calculated_output, g=out.grid;
   const stat=out.warn?`<div class="alert alert-warn">⚠ ${out.warn}</div>`:`<div class="alert alert-ok">✓ OK — ${g.total*wall.qty} total panels · ${out.dataChains*wall.qty} data ports</div>`;
-  const cards=[{l:'Built Size',v:`${(g.widthMm/304.8).toFixed(1)}′×${(g.heightMm/304.8).toFixed(1)}′`,s:'each wall'},{l:'Resolution',v:`${out.pxW}×${out.pxH}`,s:'pixels'},{l:'Aspect',v:out.near,s:`${out.si.w}:${out.si.h}`},{l:'Panels Each',v:g.total,s:`${g.p1000}×1000, ${g.p500}×500`},{l:'Panel',v:escH(out.panel_name||'—'),s:`${out.pitch}mm · ${out.panel_power||'—'}W`},{l:'Data Chains',v:out.dataChains,s:'per wall'},{l:'Power Chains',v:out.powerChains,s:'per wall'},{l:'Circuits',v:out.circuits,s:'20A/120V est.'}].map(c=>`<div class="summary-card"><div class="summary-card-label">${c.l}</div><div class="summary-card-value">${c.v}</div><div class="summary-card-sub">${c.s}</div></div>`).join('');
+  const cards=[{l:'Built Size',v:`${(g.widthMm/304.8).toFixed(1)}′×${(g.heightMm/304.8).toFixed(1)}′`,s:'each wall'},{l:'Resolution',v:`${out.pxW}×${out.pxH}`,s:'pixels'},{l:'Aspect',v:out.near,s:`${out.si.w}:${out.si.h}`},{l:'Panels Each',v:g.total,s:`${g.p1000}×1000, ${g.p500}×500`},{l:'Panel',v:escH(out.panel_name||'—'),s:`${out.pitch}mm · ${out.panel_power||'—'}W`},{l:'Data Chains',v:out.dataChains,s:'per wall'},{l:'Power Chains',v:out.powerChainCount,s:'per wall'},{l:'Circuits',v:out.circuits,s:'20A/120V est.'}].map(c=>`<div class="summary-card"><div class="summary-card-label">${c.l}</div><div class="summary-card-value">${c.v}</div><div class="summary-card-sub">${c.s}</div></div>`).join('');
   return `${stat}<div class="summary-grid">${cards}</div>`;
 }
 
@@ -511,7 +553,7 @@ function runEngine(I) {
   if(dQ)addPk('Cases Data cable trunks',Math.ceil(dQ/(I.dataCablesPerTrunk||40)));
   if(pwQ)addPk('Cases Power cable trunks',Math.ceil(pwQ/(I.powerCablesPerTrunk||40)));
   addPk('Cases Rigging case',1);
-  return{grid:g,pitch,support:sup,qty,pxW,pxH,near,si,warn,dataChains:best.chains.length,powerChains:pCh.length,circuits:circ,ports,powerChains:pCh,counts,packing,panel_name:I.panel_name||'',panel_power:I.panel_power||0};
+  return{grid:g,pitch,support:sup,qty,pxW,pxH,near,si,warn,dataChains:best.chains.length,powerChainCount:pCh.length,circuits:circ,ports,powerChains:pCh,counts,packing,panel_name:I.panel_name||'',panel_power:I.panel_power||0};
 }
 
 // ── HELPERS ─────────────────────────────────────────────────
@@ -520,8 +562,23 @@ function fmtDate(d){if(!d)return'';return new Date(d+'T00:00:00').toLocaleDateSt
 function showToast(msg,type='success'){window.showToast?.(msg,type);}
 
 // ── GLOBAL EXPOSURE ─────────────────────────────────────────
+function _addShowDay() {
+  if (!wAns.showDays) wAns.showDays=[]; 
+  wAns.showDays.push({date:'',startTime:'',endTime:''});
+  _renderStep();
+}
+function _removeShowDay(i) {
+  if (!wAns.showDays||wAns.showDays.length<=1) return;
+  // save current values before re-render
+  const dates=[...document.querySelectorAll('.show-day-date')].map(el=>el.value||'');
+  const starts=[...document.querySelectorAll('.show-day-start')].map(el=>el.value||'');
+  const ends=[...document.querySelectorAll('.show-day-end')].map(el=>el.value||'');
+  wAns.showDays=dates.map((d,idx)=>({date:d,startTime:starts[idx]||'',endTime:ends[idx]||''}));
+  wAns.showDays.splice(i,1);
+  _renderStep();
+}
 window.Projects={
   openWizard,closeWizard,openProject,deleteProject,setStatus,exportPDF,openCreateProposal,
   addWall,deleteWall,switchWall,switchDiag,showTab,openAssign,removeAssign,_loadTeam,
-  _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,
+  _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,_addShowDay,_removeShowDay,
 };
