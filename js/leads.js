@@ -181,8 +181,12 @@ async function _fetchLeads() {
   const { data, error } = await supabase.from('leads')
     .select('*,lead_assignments(id,user_id,profiles(first_name,last_name))')
     .order('created_at', { ascending: false });
-  if (error) { console.error('[Leads]', error); return []; }
-  return data || [];
+  if (!error) return data || [];
+  // Fallback without join
+  console.warn('[Leads] Join fetch failed, falling back:', error);
+  const { data: simple } = await supabase.from('leads')
+    .select('*').order('created_at', { ascending: false });
+  return (simple || []).map(l => ({ ...l, lead_assignments: [] }));
 }
 
 async function _fetchUsers() {
@@ -191,10 +195,17 @@ async function _fetchUsers() {
 }
 
 async function _fetchLead(id) {
-  const { data } = await supabase.from('leads')
+  if (!id) return null;
+  // Try with assignments join first
+  const { data, error } = await supabase.from('leads')
     .select('*,lead_assignments(id,user_id,profiles(first_name,last_name))')
     .eq('id', id).single();
-  return data;
+  if (data) return data;
+  // Fallback: fetch without join
+  console.warn('[Leads] Join failed, falling back:', error);
+  const { data: simple } = await supabase.from('leads')
+    .select('*').eq('id', id).single();
+  return simple ? { ...simple, lead_assignments: [] } : null;
 }
 
 // ============================================================
