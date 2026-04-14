@@ -259,6 +259,7 @@ function _renderProjView(mc) {
       <button class="tab-btn" id="tb-walls" onclick="window.Projects.showTab('walls')">Walls</button>
       <button class="tab-btn" id="tb-team" onclick="window.Projects.showTab('team')">Team</button>
       <button class="tab-btn" id="tb-tasks" onclick="window.Projects.showTab('tasks')">Tasks</button>
+      <button class="tab-btn" id="tb-logistics" onclick="window.Projects.showTab('logistics')">Logistics</button>
     </div>
     <div class="tab-panel active" id="tp-sum">${_sumTab(wall)}</div>
     <div class="tab-panel" id="tp-diag">${_diagTab(wall)}</div>
@@ -267,6 +268,7 @@ function _renderProjView(mc) {
     <div class="tab-panel" id="tp-walls">${_wallsTab()}</div>
     <div class="tab-panel" id="tp-team"><div style="margin-bottom:12px"><button class="btn-add" onclick="window.Projects.openAssign()">+ Assign Member</button></div><div id="team-list"><div class="loading-state"><div class="spinner"></div></div></div></div>
     <div class="tab-panel" id="tp-tasks"><div id="proj-tasks-wrap"><div class="loading-state"><div class="spinner"></div></div></div></div>
+    <div class="tab-panel" id="tp-logistics"><div id="proj-logistics-wrap"><div class="loading-state"><div class="spinner"></div></div></div></div>
     <div class="sheet-overlay" id="aw-overlay"><div class="sheet"><div class="sheet-header"><div class="sheet-title">Add Wall</div><button class="modal-close" onclick="document.getElementById('aw-overlay').classList.remove('open')">✕</button></div><div id="aw-body"></div></div></div>`;
   CDM='data'; if (wall?.calculated_output) setTimeout(()=>_drawDiag(wall.calculated_output,'data'),100);
 }
@@ -677,6 +679,125 @@ async function _loadProjTasks() {
   </table></div>`;
 }
 
+async function _loadProjLogistics() {
+  const el = document.getElementById('proj-logistics-wrap');
+  if (!el) return;
+
+  // Dynamically import logistics module and render inline
+  try {
+    const { openProjectLogistics } = await import('./logistics.js');
+
+    // Temporarily redirect main-content to our logistics wrap
+    // We render logistics controls inline by calling the module's open function
+    // but pointing output to proj-logistics-wrap
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--color-muted)">Full logistics for this project</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-blue" onclick="window.Logistics?.exportCallSheet?.()">⬇ Call Sheet PDF</button>
+          <button class="btn btn-primary" onclick="window.navigateTo('logistics');setTimeout(()=>window.Logistics?.openProjectLogistics?.('${CP?.id}','${escH(CP?.name||'')}'),200)">
+            Open Full Logistics View →
+          </button>
+        </div>
+      </div>
+      <div id="inline-logistics-body"><div class="loading-state"><div class="spinner"></div></div></div>`;
+
+    // Load the logistics data and render a summary inline
+    await _renderInlineLogistics();
+  } catch(e) {
+    console.error('[Logistics inline]', e);
+    el.innerHTML = `
+      <div class="card" style="text-align:center;padding:30px">
+        <div style="font-size:36px;margin-bottom:12px">🗓</div>
+        <div style="font-family:'Barlow',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px">Project Logistics</div>
+        <p style="font-size:13px;color:var(--color-muted);margin-bottom:16px">
+          Manage venue details, schedule, crew, trucking, files and more.
+        </p>
+        <button class="btn btn-primary" onclick="window.navigateTo('logistics');setTimeout(()=>window.Logistics?.openProjectLogistics?.('${CP?.id}','${escH(CP?.name||'')}'),300)">
+          Open Logistics →
+        </button>
+      </div>`;
+  }
+}
+
+async function _renderInlineLogistics() {
+  const el = document.getElementById('inline-logistics-body');
+  if (!el || !CP) return;
+
+  const { data: logistics } = await supabase
+    .from('logistics')
+    .select('*')
+    .eq('project_id', CP.id)
+    .single();
+
+  if (!logistics) {
+    el.innerHTML = `<div class="alert alert-warn">No logistics data yet. Click "Open Full Logistics View" to get started.</div>`;
+    return;
+  }
+
+  const s = logistics.schedule || {};
+  const legs = Array.isArray(logistics.trucking) ? logistics.trucking : [];
+  const hasVenue = logistics.venue_name || logistics.venue_address;
+  const hasSchedule = s.loadIn?.date || s.showDays?.length || s.loadOut?.date;
+  const hasTrucking = legs.length > 0;
+  const hasScope = logistics.scope_of_work;
+
+  el.innerHTML = `
+    <div class="summary-grid" style="margin-bottom:20px">
+      <div class="summary-card">
+        <div class="summary-card-label">Venue</div>
+        <div style="font-size:14px;font-weight:600;color:var(--color-text);margin-top:4px">${logistics.venue_name ? escH(logistics.venue_name) : '<span style="color:var(--color-muted)">Not set</span>'}</div>
+        ${logistics.venue_address ? `<div class="summary-card-sub">${escH(logistics.venue_address)}</div>` : ''}
+        ${logistics.venue_contact_name ? `<div class="summary-card-sub">👤 ${escH(logistics.venue_contact_name)}</div>` : ''}
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Load In</div>
+        <div style="font-size:14px;font-weight:600;color:var(--color-text);margin-top:4px">${s.loadIn?.date ? fmtDate(s.loadIn.date) : '<span style="color:var(--color-muted)">Not set</span>'}</div>
+        ${s.loadIn?.time ? `<div class="summary-card-sub">${fmtTime(s.loadIn.time)}</div>` : ''}
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Show Days</div>
+        <div class="summary-card-value">${s.showDays?.filter(sd=>sd.date).length || 0}</div>
+        <div class="summary-card-sub">${s.showDays?.filter(sd=>sd.date).map(sd=>fmtDate(sd.date)).join(', ') || 'None set'}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Load Out</div>
+        <div style="font-size:14px;font-weight:600;color:var(--color-text);margin-top:4px">${s.loadOut?.date ? fmtDate(s.loadOut.date) : '<span style="color:var(--color-muted)">Not set</span>'}</div>
+        ${s.loadOut?.time ? `<div class="summary-card-sub">${fmtTime(s.loadOut.time)}</div>` : ''}
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Trucking</div>
+        <div class="summary-card-value">${legs.length}</div>
+        <div class="summary-card-sub">${legs.length ? legs.map(l=>escH(l.method)).join(', ') : 'None added'}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Scope of Work</div>
+        <div style="font-size:13px;margin-top:4px;color:${logistics.scope_of_work?'var(--color-text)':'var(--color-muted)'}">${logistics.scope_of_work ? logistics.scope_of_work.substring(0,80)+'...' : 'Not written yet'}</div>
+      </div>
+    </div>
+
+    ${hasVenue || hasSchedule || hasTrucking ? '' : `<div class="alert alert-warn" style="margin-bottom:16px">Logistics not filled in yet. Click "Open Full Logistics View" to add details.</div>`}
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="window.navigateTo('logistics');setTimeout(()=>window.Logistics?.openProjectLogistics?.('${CP?.id}','${escH(CP?.name||'')}'),300)">
+        Open Full Logistics View →
+      </button>
+      ${hasSchedule ? `<button class="btn btn-blue" onclick="window.Logistics?.exportCallSheet?.()">⬇ Call Sheet PDF</button>` : ''}
+    </div>`;
+
+  // Make logistics available for PDF export
+  try {
+    const mod = await import('./logistics.js');
+    if (mod.openProjectLogistics) {
+      // Pre-load logistics data so PDF export works
+      await mod.openProjectLogistics(CP.id, CP.name);
+    }
+  } catch(e) {}
+}
+
+function fmtTime(t){if(!t)return'';const[h,m]=t.split(':');const hr=parseInt(h);return`${hr%12||12}:${m} ${hr<12?'AM':'PM'}`;}
+
 function _addShowDay() {
   if (!wAns.showDays) wAns.showDays=[]; 
   wAns.showDays.push({date:'',startTime:'',endTime:''});
@@ -695,5 +816,5 @@ function _removeShowDay(i) {
 window.Projects={
   openWizard,closeWizard,openProject,deleteProject,setStatus,exportPDF,openCreateProposal,
   addWall,deleteWall,switchWall,switchDiag,showTab,openAssign,removeAssign,_loadTeam,
-  _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,_addShowDay,_removeShowDay,setPackView,
+  _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,_addShowDay,_removeShowDay,setPackView,_loadProjLogistics,
 };
