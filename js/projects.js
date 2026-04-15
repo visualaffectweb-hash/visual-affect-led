@@ -1,6 +1,7 @@
 // projects.js — Project management, LED engine, diagrams
 // See full implementation in the build
 import { supabase, dbInsert, dbUpdate, dbDelete, logActivity } from './supabase.js';
+import { runEngine, calcGrid, flybarCols, nearAsp, simp } from './engine.js';
 import { getProfile, isAdmin } from './auth.js';
 
 // ── RENDER ─────────────────────────────────────────────────
@@ -514,7 +515,7 @@ function _renderSVG(svg,g,wallChains,pCh,mode,support,bg) {
   const dr=(x,y,w,h)=>svg.appendChild(mk('rect',{x:mm(x),y:tp+mm(y),width:mm(w),height:mm(h),fill:'#fff',stroke:'#1a1a1a','stroke-width':'1.5'}));
   let y=0;for(let r=0;r<g.rows1000;r++){for(let c=0;c<g.cols;c++)dr(pad+c*cW,y,cW,h1);y+=h1;}
   for(let r=0;r<g.rows500;r++){for(let c=0;c<g.cols;c++)dr(pad+c*cW,y,cW,h2);y+=h2;}
-  if(support==='flown')_flybarCols(g.cols).forEach(ci=>svg.appendChild(mk('rect',{x:mm(pad+ci*cW+40),y:tp+mm(-22),width:mm(cW-80),height:mm(110),rx:mm(30),fill:'#1a3a5c',opacity:'0.9'})));
+  if(support==='flown')flybarCols(g.cols).forEach(ci=>svg.appendChild(mk('rect',{x:mm(pad+ci*cW+40),y:tp+mm(-22),width:mm(cW-80),height:mm(110),rx:mm(30),fill:'#1a3a5c',opacity:'0.9'})));
   const ctr=n=>({cx:mm(pad+n.col*cW+cW/2),cy:tp+mm(n.row<g.rows1000?n.row*h1+h1/2:g.rows1000*h1+(n.row-g.rows1000)*h2+h2/2)});
   const chain=(nodes,clr)=>{for(let i=0;i<nodes.length;i++){const P=ctr(nodes[i]),t=mk('text',{x:P.cx,y:P.cy+4,'text-anchor':'middle','font-size':'11',fill:'#111','font-weight':'600'});t.textContent=String(i+1);svg.appendChild(t);if(i<nodes.length-1){const Q=ctr(nodes[i+1]);svg.appendChild(mk('line',{x1:P.cx,y1:P.cy,x2:Q.cx,y2:Q.cy,stroke:clr,'stroke-width':'2.5','marker-end':'url(#arr)'}));}}};
   if(mode==='data')wallChains.forEach(ch=>chain(ch.nodes||ch,PC[((ch.port||1)-1)%4]));
@@ -579,70 +580,6 @@ async function exportPDF(id) {
 
   const tot=doc.getNumberOfPages();for(let i=1;i<=tot;i++){doc.setPage(i);doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(160,160,160);doc.text('Visual Affect — LED Planning Tool',M,295);doc.text('Page '+i+' of '+tot,W-M,295,'right');}
   doc.save((CP.name||'project').replace(/[^a-z0-9]/gi,'_')+'_led_plan.pdf');
-}
-
-// ── LED ENGINE ──────────────────────────────────────────────
-const FT2MM=304.8, mm2ft=m=>m/304.8;
-const gcd=(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b)[a,b]=[b,a%b];return a||1};
-const simp=(w,h)=>{const g=gcd(w,h);return{w:Math.round(w/g),h:Math.round(h/g)};};
-const nearAsp=(w,h)=>{const r=w/h,S=[{n:'16:9',r:16/9},{n:'4:3',r:4/3},{n:'3:2',r:3/2},{n:'21:9',r:21/9},{n:'5:4',r:5/4},{n:'1:1',r:1}];let B=S[0],e=1e9;for(const s of S){const d=Math.abs(r-s.r);if(d<e){e=d;B=s;}}return B.n;};
-function calcGrid(wF,hF,mode){const w=wF*FT2MM,h=hF*FT2MM,c=Math.max(1,Math.round(w/500));if(mode==='1000'){const r=Math.max(1,Math.round(h/1000));return{cols:c,rows1000:r,rows500:0,p1000:c*r,p500:0,total:c*r,widthMm:c*500,heightMm:r*1000};}if(mode==='500'){const r=Math.max(1,Math.round(h/500));return{cols:c,rows1000:0,rows500:r,p1000:0,p500:c*r,total:c*r,widthMm:c*500,heightMm:r*500};}const base=Math.max(0,Math.floor(h/1000)),opts=[{r1k:base,r500:0},{r1k:base,r500:1},{r1k:base+1,r500:0}].filter(o=>o.r1k+o.r500>0);let best=opts[0],d=1e12;for(const o of opts){const H=o.r1k*1000+o.r500*500,D=Math.abs(H-h);if(D<d){d=D;best=o;}}return{cols:c,rows1000:best.r1k,rows500:best.r500,p1000:c*best.r1k,p500:c*best.r500,total:c*(best.r1k+best.r500),widthMm:c*500,heightMm:best.r1k*1000+best.r500*500};}
-function pxPN(row,g,pitch){return Math.round(500/pitch)*(row<g.rows1000?Math.round(1000/pitch):Math.round(500/pitch));}
-function hChains(g,cap,pitch,pxCap){const R=g.rows1000+g.rows500,C=g.cols,rpc=Math.max(1,Math.floor(cap/C)),chains=[];for(let r0=0;r0<R;){let take=Math.min(rpc,R-r0);while(take>0){let px=0,ok=true;for(let rr=r0;rr<r0+take&&ok;rr++)for(let c=0;c<C;c++){px+=pxPN(rr,g,pitch);if(px>pxCap){ok=false;break;}}if(ok)break;take--;}const nodes=[];for(let rr=r0;rr<r0+take;rr++){const ltr=(rr-r0)%2===0;if(ltr)for(let c=0;c<C;c++)nodes.push({col:c,row:rr});else for(let c=C-1;c>=0;c--)nodes.push({col:c,row:rr});}chains.push(nodes);r0+=take;}return chains;}
-function vChains(g,cap,pitch,pxCap){const R=g.rows1000+g.rows500,C=g.cols,cpc=Math.max(1,Math.floor(cap/R)),chains=[];for(let c0=0;c0<C;){let take=Math.min(cpc,C-c0);while(take>0){let px=0,ok=true;for(let cc=c0;cc<c0+take&&ok;cc++)for(let r=0;r<R;r++){px+=pxPN(r,g,pitch);if(px>pxCap){ok=false;break;}}if(ok)break;take--;}const nodes=[];for(let cc=c0;cc<c0+take;cc++){const td=(cc-c0)%2===0;if(td)for(let r=0;r<R;r++)nodes.push({col:cc,row:r});else for(let r=R-1;r>=0;r--)nodes.push({col:cc,row:r});}chains.push(nodes);c0+=take;}return chains;}
-function snakeC(g,pitch,pxCap,cap){if(g.total>cap)return null;let px=0;const R=g.rows1000+g.rows500,nodes=[];for(let r=0;r<R;r++){const ltr=r%2===0;const cols=ltr?[...Array(g.cols).keys()]:[...Array(g.cols).keys()].reverse();for(const c of cols){px+=pxPN(r,g,pitch);if(px>pxCap)return null;nodes.push({col:c,row:r});}}return nodes;}
-function bestDC(g,qty,pitch,pxCap,cap){const ec=(g.rows1000===0&&g.rows500>0)?40:cap;const sn=snakeC(g,pitch,pxCap,ec);if(sn)return{mode:'single',chains:[sn]};const H=hChains(g,ec,pitch,pxCap),V=vChains(g,ec,pitch,pxCap);function sc(ch,q){return{procs:Math.max(Math.ceil(g.total*q/80),Math.ceil(ch.length*q/4)),ports:ch.length*q};}const sH=sc(H,qty),sV=sc(V,qty);if(qty===1){if(g.total<=80&&H.length<=4)return{mode:'horizontal',chains:H};if(sH.procs<sV.procs)return{mode:'horizontal',chains:H};if(sV.procs<sH.procs)return{mode:'vertical',chains:V};if(sH.ports<=sV.ports)return{mode:'horizontal',chains:H};return{mode:'vertical',chains:V};}if(g.total*qty<=80&&V.length*qty<=4)return{mode:'vertical',chains:V};if(sV.procs<sH.procs)return{mode:'vertical',chains:V};if(sH.procs<sV.procs)return{mode:'horizontal',chains:H};if(sV.ports<sH.ports)return{mode:'vertical',chains:V};return{mode:'horizontal',chains:H};}
-function pwrChains(g,tMax,sMax){const out=[],R=g.rows1000+g.rows500,C=g.cols;if(g.total<10){const nodes=[];for(let r=0;r<R;r++){const ltr=r%2===0;if(ltr)for(let c=0;c<C;c++)nodes.push({col:c,row:r});else for(let c=C-1;c>=0;c--)nodes.push({col:c,row:r});}out.push(nodes);return out;}if(C===1){const buf=[];let u=0;for(let r=0;r<R;r++){buf.push({col:0,row:r});u+=r<g.rows1000?1:.5;if(u+((r+1<R)?(r+1<g.rows1000?1:.5):0)>tMax){out.push(buf.slice());buf.length=0;u=0;}}if(buf.length)out.push(buf.slice());return out;}for(let r=0;r<g.rows1000;r++){const row=[];for(let c=0;c<C;c++)row.push({col:c,row:r});for(let i=0;i<row.length;i+=tMax)out.push(row.slice(i,i+tMax));}for(let r=0;r<g.rows500;r++){const rr=g.rows1000+r,row=[];for(let c=0;c<C;c++)row.push({col:c,row:rr});for(let i=0;i<row.length;i+=sMax)out.push(row.slice(i,i+sMax));}return out;}
-function _flybarCols(cols){const res=[];if(cols<=0)return res;if(cols%2===1){const c=Math.floor(cols/2);res.push(c);for(let d=2;(c-d)>=0||(c+d)<cols;d+=2){if(c-d>=0)res.push(c-d);if(c+d<cols)res.push(c+d);}}else{const l=cols/2-1,r=cols/2;res.push(l,r);for(let d=2;(l-d)>=0||(r+d)<cols;d+=2){if(l-d>=0)res.push(l-d);if(r+d<cols)res.push(r+d);}}return res.sort((a,b)=>a-b);}
-function asgPorts(chains,qty){const out=Array.from({length:qty},()=>[]);const all=[];for(let w=0;w<qty;w++)for(const ch of chains)all.push({w,nodes:ch});let proc=1,port=1,po=0,pa=0;for(const ch of all){const n=ch.nodes.length;if(po>=4||pa+n>80){proc++;port=1;po=0;pa=0;}out[ch.w].push({nodes:ch.nodes,port,proc});port++;po++;pa+=n;}return out;}
-const slk=(ft,p)=>ft*(1+(p||0)/100);
-const eth=ft=>ft<=2?'1.5ft ethercon':ft<=6?'4ft ethercon':ft<=30?'30ft ethercon':ft<=50?'50ft ethercon':ft<=100?'100ft ethercon':ft<=200?'200ft ethercon':'300ft ethercon';
-const fdr=ft=>ft<=25?'25ft edison':ft<=50?'50ft edison':'75ft edison';
-const vJ=i=>i%2===0?'4ft white to white':'4ft blue to blue';
-
-function runEngine(I) {
-  const g=calcGrid(I.widthFt,I.heightFt,I.panelMode);
-  const qty=Math.max(1,I.qty||1),sup=I.support||'flown',pitch=I.pitch||3.9,pxCap=I.pxPerPortTarget||650000,cap=I.dataMaxChain||20;
-  const tMax=I.pwrTallMax||12,sMax=I.pwrShortMax||24,drop=I.procDrop||6,pct=I.slackPct||20;
-  const best=bestDC(g,qty,pitch,pxCap,cap);
-  const pCh=pwrChains(g,tMax,sMax);
-  const ports=asgPorts(best.chains,qty);
-  let warn='';if(sup==='flown'){const t=g.rows1000+g.rows500*.5;if(t>(I.maxTallPerFlownColumn||10))warn=`Flown limit exceeded: ${t} tall (>${I.maxTallPerFlownColumn||10}).`;}
-  const pxW=Math.round(g.widthMm/pitch),pxH=Math.round(g.heightMm/pitch),near=nearAsp(pxW,pxH),si=simp(pxW,pxH);
-  const counts={},add=(k,n=1)=>counts[k]=(counts[k]||0)+n;
-  if(g.p1000)add('Panels: 1000x500',g.p1000*qty);if(g.p500)add('Panels: 500x500',g.p500*qty);
-  const pd=I.procDist||0,home=slk(Math.hypot(pd,drop),pct),ct=best.chains.length*qty;
-  if(pd>0&&ct>0)add(eth(home),ct);
-  best.chains.forEach(ch=>{for(let i=0;i<ch.length-1;i++){const a=ch[i],b=ch[i+1],dc=Math.abs(b.col-a.col),dr=Math.abs(b.row-a.row);let ft=0;if(dc===1&&dr===0)ft=mm2ft(500);else if(dc===0&&dr===1)ft=mm2ft(Math.min(a.row,b.row)<g.rows1000?1000:500);else ft=mm2ft(Math.hypot(dc*500,(Math.min(a.row,b.row)<g.rows1000?1000:500)*dr));add(eth(slk(ft,pct)),qty);}});
-  const lap=I.laptops||0,cam=I.cameras||0;
-  if(lap>0)add('HDMI 10ft',lap*2);if((lap+cam)>0&&I.sdiDist>0)counts['SDI (per input)']=Math.round(I.sdiDist)+'ft x '+(lap+cam);if(lap>0)add('HDMI-SDI converter',lap);
-  const pwD=I.powerDist||0,fpick=pwD>0?fdr(pwD):'25ft edison';
-  add('32ft edison to powercon',pCh.length*qty);add(fpick,pCh.length*qty);
-  pCh.forEach(ch=>{for(let i=0;i<ch.length-1;i++){const a=ch[i],b=ch[i+1];if(a.row===b.row&&Math.abs(a.col-b.col)===1)add('1.5ft powercon jumper',qty);if(a.col===b.col&&Math.abs(a.row-b.row)===1)add(vJ(i),qty);}});
-  if(sup==='ground'){const wFt=g.widthMm/304.8,hFt=g.heightMm/304.8,s=Math.ceil(wFt/4)+1,ar=Math.ceil(hFt/4);add('Pipe and base (ground support)',s*qty);add('Rigging arm 4x4 grid',s*ar*qty);const stk=g.cols*qty;add('Stacking bars',stk);add('Adjustable feet',stk*2);}
-  else{const fc=_flybarCols(g.cols),fly=fc.length*qty;add('Fly bars',fly);add('Megaclaw',fly);const L=g.widthMm/304.8,n10=Math.max(1,Math.ceil(L/10));for(let i=0;i<n10;i++){add('Truss 10ft',qty);add('Sched 40 pipe 10ft',qty);}add('Swivel cheeseborough',Math.ceil(n10*10/3)*qty);}
-  const totalP=g.total*qty,tCh=best.chains.length*qty,procs=Math.max(Math.ceil(totalP/80),Math.ceil(tCh/4));
-  add('Processors NovaPro HD',procs);if(Math.ceil(g.total/80)>1)add('Mosaic mode required per wall',qty);if(lap>0)add('Playback laptop',lap);
-  const circ=pCh.length*qty+1;
-  const packing={},addPk=(k,q,note='')=>{if(!q)return;packing[k]={qty:(packing[k]?.qty||0)+q,note};};
-  const pc1=I.panelsPerCase1000||6,pc5=I.panelsPerCase500||6,mnS=I.minSparePanels||2,mxS=I.maxSparePanels||6;
-  function planC(req,perC,inv){if(req<=0)return null;const mxC=Math.floor(inv/perC),base=Math.ceil(req/perC);if(!mxC||mxC*perC<req)return{cases:base,filled:base*perC,spares:0};let b2=null,bD=1e9;for(let k=base;k<=mxC;k++){const sp=k*perC-req,ok=sp>=mnS&&sp<=mxS,d=Math.abs(sp-mnS);if(!b2||(ok&&d<bD)){b2={cases:k,filled:k*perC,spares:sp};bD=d;}}return b2||{cases:base,filled:base*perC,spares:base*perC-req};}
-  const n1=counts['Panels: 1000x500']||0,n5=counts['Panels: 500x500']||0;
-  const pl1=planC(n1,pc1,I.inv1000||0),pl5=planC(n5,pc5,I.inv500||0);
-  if(n1>0&&pl1){addPk('Panels 1000x500',pl1.filled,`includes ${pl1.spares} spares`);addPk('Cases Panel 1000x500 6ea',pl1.cases);}
-  if(n5>0&&pl5){addPk('Panels 500x500',pl5.filled,`includes ${pl5.spares} spares`);addPk('Cases Panel 500x500 6ea',pl5.cases);}
-  const spPct=I.spareCablesPct||20,addSp=v=>v+Math.ceil(v*spPct/100);
-  ['1.5ft ethercon','4ft ethercon','30ft ethercon','50ft ethercon','100ft ethercon','200ft ethercon','300ft ethercon'].forEach(k=>{if(counts[k])addPk(k,addSp(counts[k]));});
-  if(counts['HDMI 10ft'])addPk('HDMI 10ft',addSp(counts['HDMI 10ft']));
-  if(counts['HDMI-SDI converter'])addPk('HDMI-SDI converter',counts['HDMI-SDI converter']);
-  ['32ft edison to powercon','25ft edison','50ft edison','75ft edison','1.5ft powercon jumper','4ft white to white','4ft blue to blue'].forEach(k=>{if(counts[k])addPk(k,addSp(counts[k]));});
-  ['Pipe and base (ground support)','Rigging arm 4x4 grid','Stacking bars','Adjustable feet','Fly bars','Megaclaw','Truss 10ft','Sched 40 pipe 10ft','Swivel cheeseborough','Processors NovaPro HD','Playback laptop','Mosaic mode required per wall'].forEach(k=>{if(counts[k])addPk(k,counts[k]);});
-  const dQ=['1.5ft ethercon','4ft ethercon','30ft ethercon','50ft ethercon','100ft ethercon','200ft ethercon','300ft ethercon','HDMI 10ft'].reduce((a,k)=>a+(packing[k]?.qty||0),0);
-  const pwQ=['32ft edison to powercon','25ft edison','50ft edison','75ft edison','1.5ft powercon jumper','4ft white to white','4ft blue to blue'].reduce((a,k)=>a+(packing[k]?.qty||0),0);
-  if(dQ)addPk('Cases Data cable trunks',Math.ceil(dQ/(I.dataCablesPerTrunk||40)));
-  if(pwQ)addPk('Cases Power cable trunks',Math.ceil(pwQ/(I.powerCablesPerTrunk||40)));
-  addPk('Cases Rigging case',1);
-  return{grid:g,pitch,support:sup,qty,pxW,pxH,near,si,warn,dataChains:best.chains.length,powerChainCount:pCh.length,circuits:circ,ports,powerChains:pCh,counts,packing,panel_name:I.panel_name||'',panel_power:I.panel_power||0};
 }
 
 // ── HELPERS ─────────────────────────────────────────────────
