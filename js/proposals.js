@@ -98,7 +98,7 @@ function _renderList(container, proposals) {
 function _proposalCard(p) {
   const stage = CONTRACTING_STAGES.find(s => s.key === p.contracting_stage);
   const needsAction = ['verbal','coi_pending','contract_sent','deposit_pending'].includes(p.contracting_stage);
-  const contact = p.contacts || p.clients;
+  const contact = p.contacts;
   return `<div class="pcard" style="border-color:${needsAction?'#fbbf24':'var(--color-border-light)'}">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
       <span class="tag ${STATUS_COLORS[p.status]||'tag-gray'}">${STATUS_LABELS[p.status]||p.status}</span>
@@ -125,16 +125,17 @@ function _proposalCard(p) {
 
 async function _fetchProposals() {
   const { data, error } = await supabase.from('proposals')
-    .select('*,contacts(company_name),clients(company_name),profiles!proposals_owner_id_fkey(first_name,last_name)')
+    .select('*,contacts(company_name),profiles!proposals_owner_id_fkey(first_name,last_name)')
     .order('created_at', { ascending: false });
   if (error) { console.error('[Proposals]', error); return []; }
   return data || [];
 }
 
 async function _fetchProposal(id) {
-  const { data } = await supabase.from('proposals')
-    .select('*,contacts(*),clients(*)')
+  const { data, error } = await supabase.from('proposals')
+    .select('*,contacts(*)')
     .eq('id', id).single();
+  if (error) { console.error('[Proposals] fetch error:', error); return null; }
   return data;
 }
 
@@ -409,10 +410,11 @@ function _lineItemsStep() {
         <div id="inv-search-results" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
           ${_wizInventory.map(item=>`<div class="inv-search-item" data-name="${escH(item.name.toLowerCase())}"
             style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px">
-            <div><div style="font-weight:600;font-size:13px">${escH(item.name)}</div>
+            <div><div class="inv-name" style="font-weight:600;font-size:13px">${escH(item.name)}</div>
             <div class="text-small text-muted">${escH(item.category||'')} · ${item.rate_project?'$'+item.rate_project+'/project':item.rate_day?'$'+item.rate_day+'/day':'No price'}</div></div>
             <button class="btn btn-primary" style="font-size:11px;padding:5px 10px"
-              onclick="window.Proposals._addInvItem('${item.id}','${escH(item.name)}',${item.rate_project||item.rate_day||0})">+ Add</button>
+              data-inv-id="${item.id}" data-inv-price="${item.rate_project||item.rate_day||0}"
+              onclick="window.Proposals._addInvItem(this.dataset.invId,this.closest('.inv-search-item').querySelector('.inv-name').textContent,parseFloat(this.dataset.invPrice)||0)">+ Add</button>
           </div>`).join('')}
         </div>
       </div>
@@ -712,15 +714,21 @@ async function openProposal(id) {
   const mc=document.getElementById('main-content');
   mc.innerHTML=`<div class="loading-state"><div class="spinner"></div><div>Loading...</div></div>`;
   document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  if (!id) { mc.innerHTML=`<div class="empty-state"><div class="empty-title">Invalid proposal ID</div></div>`; return; }
   const proposal=await _fetchProposal(id);
-  if(!proposal){mc.innerHTML=`<div class="empty-state"><div class="empty-title">Proposal not found</div></div>`;return;}
+  if(!proposal){
+    // Try navigating to proposals list and let user find it
+    console.error('[Proposals] Could not load proposal', id);
+    window.navigateTo('proposals');
+    return;
+  }
   _currentProposal=proposal;
   _renderProposalDetail(mc);
 }
 
 function _renderProposalDetail(mc) {
   const p=_currentProposal;
-  const contact=p.contacts||p.clients;
+  const contact=p.contacts;
   const stage=CONTRACTING_STAGES.find(s=>s.key===p.contracting_stage);
   mc.innerHTML=`
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -1097,7 +1105,7 @@ async function exportPDF(id) {
   doc.setFontSize(10);doc.setFont('helvetica','normal');doc.text('LED Video Walls',lm,28);
   doc.setFont('helvetica','bold');doc.setFontSize(14);doc.text('PROPOSAL',rm,20,'right');
   y=55;
-  const contact=p.contacts||p.clients;
+  const contact=p.contacts;
   doc.setTextColor(0,0,0);doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text(p.title||'Proposal',lm,y);y+=8;
   doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
   if(contact?.company_name){doc.text(`Client: ${contact.company_name}`,lm,y);y+=6;}
