@@ -262,6 +262,7 @@ function _renderProjView(mc) {
       <button class="tab-btn" id="tb-team" onclick="window.Projects.showTab('team')">Team</button>
       <button class="tab-btn" id="tb-tasks" onclick="window.Projects.showTab('tasks')">Tasks</button>
       <button class="tab-btn" id="tb-logistics" onclick="window.Projects.showTab('logistics')">Logistics</button>
+      <button class="tab-btn" id="tb-history" onclick="window.Projects.showTab('history')">Job History</button>
     </div>
     <div class="tab-panel active" id="tp-sum">${_sumTab(wall)}</div>
     <div class="tab-panel" id="tp-diag">${_diagTab(wall)}</div>
@@ -271,6 +272,7 @@ function _renderProjView(mc) {
     <div class="tab-panel" id="tp-team"><div style="margin-bottom:12px"><button class="btn-add" onclick="window.Projects.openAssign()">+ Assign Member</button></div><div id="team-list"><div class="loading-state"><div class="spinner"></div></div></div></div>
     <div class="tab-panel" id="tp-tasks"><div id="proj-tasks-wrap"><div class="loading-state"><div class="spinner"></div></div></div></div>
     <div class="tab-panel" id="tp-logistics"><div id="proj-logistics-wrap"><div class="loading-state"><div class="spinner"></div></div></div></div>
+    <div class="tab-panel" id="tp-history"><div id="proj-history-wrap"><div class="loading-state" style="padding:30px"><div class="spinner"></div></div></div></div>
     <div class="sheet-overlay" id="aw-overlay"><div class="sheet"><div class="sheet-header"><div class="sheet-title">Add Wall</div><button class="modal-close" onclick="document.getElementById('aw-overlay').classList.remove('open')">✕</button></div><div id="aw-body"></div></div></div>`;
   CDM='data'; if (wall?.calculated_output) setTimeout(()=>_drawDiag(wall.calculated_output,'data'),100);
 }
@@ -430,7 +432,7 @@ function _wallsTab() {
 
 // ── TAB / WALL SWITCHING ────────────────────────────────────
 function showTab(name) {
-  ['sum','diag','counts','pack','walls','team'].forEach(t=>{document.getElementById('tb-'+t)?.classList.toggle('active',t===name);document.getElementById('tp-'+t)?.classList.toggle('active',t===name);});
+  ['sum','diag','counts','pack','walls','team','tasks','logistics','history'].forEach(t=>{document.getElementById('tb-'+t)?.classList.toggle('active',t===name);document.getElementById('tp-'+t)?.classList.toggle('active',t===name);});
   if (name==='diag'){const w=CW[CWI];if(w?.calculated_output)_drawDiag(w.calculated_output,CDM);}
   if (name==='team') _loadTeam();
 }
@@ -635,6 +637,92 @@ async function exportPDF(id) {
 
   const tot=doc.getNumberOfPages();for(let i=1;i<=tot;i++){doc.setPage(i);doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(160,160,160);doc.text('Visual Affect — LED Planning Tool',M,295);doc.text('Page '+i+' of '+tot,W-M,295,'right');}
   doc.save((CP.name||'project').replace(/[^a-z0-9]/gi,'_')+'_led_plan.pdf');
+}
+
+// ── JOB HISTORY ─────────────────────────────────────────────
+
+async function _loadJobHistory() {
+  const el = document.getElementById('proj-history-wrap'); if (!el || !CP) return;
+  el.innerHTML = '<div class="loading-state" style="padding:30px"><div class="spinner"></div></div>';
+
+  const rows = [];
+
+  // Lead
+  if (CP.lead_id || CP.proposal_id) {
+    // Try to find lead via proposal
+    if (CP.proposal_id) {
+      const { data: prop } = await supabase.from('proposals').select('lead_id,title,created_at,status').eq('id', CP.proposal_id).single();
+      if (prop?.lead_id) {
+        const { data: lead } = await supabase.from('leads').select('id,first_name,last_name,status,created_at,notes').eq('id', prop.lead_id).single();
+        if (lead) rows.push({ type:'lead', icon:'📋', label:'Lead', data: lead });
+      }
+      if (prop) rows.push({ type:'proposal', icon:'📄', label:'Proposal', data: prop });
+    }
+  }
+
+  // This project
+  rows.push({ type:'project', icon:'📐', label:'Project', data: CP, current: true });
+
+  // Activity log
+  const { data: activity } = await supabase.from('activity_log')
+    .select('*,profiles!activity_log_performed_by_fkey(first_name,last_name)')
+    .or(`entity_id.eq.${CP.id}${CP.proposal_id?',entity_id.eq.'+CP.proposal_id:''}`)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Journey timeline -->
+      <div class="card" style="padding:16px">
+        <div style="font-family:'Barlow',sans-serif;font-size:14px;font-weight:700;margin-bottom:14px">Job Journey</div>
+        <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap">
+          ${rows.map((r, i) => `
+            <div style="display:flex;align-items:center;gap:0">
+              <div style="background:${r.current?'#eff6ff':'#f9fafb'};border:1.5px solid ${r.current?'#2563eb':'var(--color-border-light)'};border-radius:8px;padding:12px 16px;min-width:160px">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:4px">${r.icon} ${r.label}</div>
+                <div style="font-weight:600;font-size:13px;margin-bottom:4px">${escH(r.type==='lead'?r.data.first_name+' '+r.data.last_name:r.data.title||r.data.name||'—')}</div>
+                <div style="font-size:11px;color:var(--color-muted)">${new Date(r.data.created_at).toLocaleDateString()}</div>
+                ${!r.current && r.type==='proposal' && CP.proposal_id?`<button class="btn" style="margin-top:8px;font-size:11px;padding:3px 8px;width:100%" onclick="window.navigateTo('proposals');setTimeout(()=>window.Proposals?.openProposal?.('${CP.proposal_id}'),300)">View →</button>`:''}
+              </div>
+              ${i < rows.length-1 ? `<div style="width:28px;height:2px;background:var(--color-border-light);flex-shrink:0"></div>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Lead details if available -->
+      ${rows.find(r=>r.type==='lead') ? (() => {
+        const lead = rows.find(r=>r.type==='lead').data;
+        return `<div class="card" style="padding:16px">
+          <div style="font-family:'Barlow',sans-serif;font-size:14px;font-weight:700;margin-bottom:12px">Original Lead Info</div>
+          <div class="form-grid form-grid-2" style="gap:8px">
+            <div><div class="form-label">Contact</div><div style="font-size:13px;margin-top:3px">${escH(lead.first_name+' '+lead.last_name)}</div></div>
+            <div><div class="form-label">Lead Status</div><div style="font-size:13px;margin-top:3px">${escH(lead.status||'')}</div></div>
+            ${lead.notes?`<div style="grid-column:1/-1"><div class="form-label">Initial Notes</div><div style="font-size:13px;margin-top:3px;line-height:1.6">${escH(lead.notes)}</div></div>`:''}
+          </div>
+        </div>`;
+      })() : ''}
+
+      <!-- Activity log -->
+      <div class="card" style="padding:16px">
+        <div style="font-family:'Barlow',sans-serif;font-size:14px;font-weight:700;margin-bottom:12px">Full Activity Log</div>
+        ${!activity?.length
+          ? `<div class="empty-state" style="padding:20px"><div class="empty-title">No activity logged yet</div></div>`
+          : `<div style="display:flex;flex-direction:column;gap:6px">${activity.map(a=>`
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f3f4f6">
+                <div style="flex:1">
+                  <div style="font-size:13px">
+                    <strong>${a.profiles?a.profiles.first_name+' '+a.profiles.last_name:'System'}</strong>
+                    <span style="color:var(--color-muted)"> ${escH((a.action||'').replace(/_/g,' '))}</span>
+                    <span style="font-size:10px;background:#f1f5f9;padding:1px 6px;border-radius:3px;margin-left:4px">${escH(a.entity_type||'')}</span>
+                  </div>
+                  ${a.metadata?.status||a.metadata?.stage?`<div class="text-small text-muted">→ ${escH(a.metadata.status||a.metadata.stage)}</div>`:''}
+                </div>
+                <div class="text-small text-muted" style="flex-shrink:0">${new Date(a.created_at).toLocaleString()}</div>
+              </div>`).join('')}
+          </div>`}
+      </div>
+    </div>`;
 }
 
 // ── HELPERS ─────────────────────────────────────────────────

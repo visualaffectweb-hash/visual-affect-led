@@ -63,7 +63,7 @@ function _renderList(container, proposals) {
     <div class="section-header">
       <div>
         <div class="section-title">Proposals</div>
-        <div class="section-sub">${active.length} active · ${archived.length} archived${needsAction.length?` · <span style="color:#d97706;font-weight:600">⚠ ${needsAction.length} need action</span>`:''}</div>
+        <div class="section-sub">${active.length} active · ${archived.length} archived${needsAction.length?` · <span style="color:#d97706;font-weight:600">⚠ ${needsAction.length} need action</span>`:''} · Converted proposals live in Projects</div>
       </div>
       <button class="btn-add" onclick="window.Proposals.openWizard()">+ New Proposal</button>
     </div>
@@ -126,6 +126,7 @@ function _proposalCard(p) {
 async function _fetchProposals() {
   const { data, error } = await supabase.from('proposals')
     .select('*,contacts(company_name),profiles!proposals_owner_id_fkey(first_name,last_name)')
+    .is('project_id', null)  // proposals with a project_id live in Projects now
     .order('created_at', { ascending: false });
   if (error) { console.error('[Proposals]', error); return []; }
   return data || [];

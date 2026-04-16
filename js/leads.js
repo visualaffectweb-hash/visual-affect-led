@@ -16,6 +16,7 @@ const STATUSES = [
   { key:'create_proposal',  label:'Create Proposal',  color:'#d97706' },
   { key:'lost',             label:'Lost',             color:'#dc2626' },
 ];
+// Note: 'converted' leads are filtered out of this view — they live in Projects
 
 const SUPPORT_METHODS = [
   'Flown',
@@ -227,10 +228,12 @@ function _showOverdue() {
 async function _fetchLeads() {
   const { data, error } = await supabase.from('leads')
     .select('*,lead_assignments(id,user_id,profiles!lead_assignments_user_id_fkey(first_name,last_name))')
+    .not('status', 'eq', 'converted')  // converted leads live in Projects now
     .order('due_date', { ascending: true, nullsFirst: false });
   if (error) {
     console.warn('[Leads] Join failed, falling back:', error);
-    const { data: simple } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+    const { data: simple } = await supabase.from('leads')
+      .select('*').neq('status','converted').order('created_at', { ascending: false });
     _allLeads = (simple || []).map(l => ({ ...l, lead_assignments: [] }));
     return _allLeads;
   }
