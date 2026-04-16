@@ -300,7 +300,21 @@ function _sumTab(wall) {
         ${p.scope_notes?`<div style="grid-column:1/-1"><div class="form-label">Scope of Work</div><div style="font-size:13px;margin-top:3px;line-height:1.6;white-space:pre-wrap">${escH(p.scope_notes)}</div></div>`:''}
       </div>
     </div>`;
-  if (!wall?.calculated_output) return projectInfo + `<div class="empty-state"><div class="empty-title">No wall data yet</div><p class="empty-sub">Click <strong>+ Add Wall</strong> to start the LED engine.</p></div>`;
+  // Guide user to next step if walls exist but need engine run
+  const hasWalls = CW.length > 0;
+  const needsEngine = hasWalls && !wall?.calculated_output;
+  if (!wall?.calculated_output) {
+    return projectInfo + (needsEngine ? `
+      <div class="alert alert-ok" style="margin-top:14px">
+        <strong>✓ Wall placeholder created</strong> — Go to the <strong>Walls</strong> tab, click your wall, and select a panel to run the LED engine and generate diagrams, counts, and packing lists.
+      </div>` : `
+      <div style="margin-top:14px;text-align:center;padding:30px;background:#f9fafb;border:1.5px dashed var(--color-border-light);border-radius:10px">
+        <div style="font-size:24px;margin-bottom:8px">🖥</div>
+        <div style="font-family:'Barlow',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px">No walls yet</div>
+        <p style="font-size:13px;color:var(--color-muted);margin-bottom:14px">Click <strong>+ Add Wall</strong> to configure panels and run the LED engine.</p>
+        <button class="btn btn-primary" onclick="window.Projects.addWall()">+ Add Wall</button>
+      </div>`);
+  }
   const out=wall.calculated_output, g=out.grid;
   const stat=out.warn?`<div class="alert alert-warn">⚠ ${out.warn}</div>`:`<div class="alert alert-ok">✓ OK — ${g.total*wall.qty} total panels · ${out.dataChains*wall.qty} data ports</div>`;
   return projectInfo + stat + `<div class="summary-grid">${cards}</div>`;
@@ -426,8 +440,34 @@ function _renderPackSections(packing) {
 }
 
 function _wallsTab() {
-  if (!CW.length) return `<div class="empty-state"><div class="empty-title">No walls</div></div>`;
-  return `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn-add" onclick="window.Projects.addWall()">+ Add Wall</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Name</th><th>Size</th><th>Mount</th><th>Qty</th><th>Panels</th><th></th></tr></thead><tbody>${CW.map((w,i)=>`<tr><td><strong>${escH(w.name)}</strong></td><td>${w.width_ft}′ × ${w.height_ft}′</td><td><span class="tag ${w.mount_type==='flown'?'tag-blue':'tag-yellow'}">${w.mount_type}</span></td><td>${w.qty}</td><td>${w.calculated_output?.grid?.total||'—'}</td><td style="display:flex;gap:6px"><button class="btn" style="font-size:11px;padding:4px 9px" onclick="window.Projects.switchWall(${i})">View</button><button class="btn btn-danger" style="font-size:11px;padding:4px 9px" onclick="window.Projects.deleteWall('${w.id}')">✕</button></td></tr>`).join('')}</tbody></table></div>`;
+  return `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn-add" onclick="window.Projects.addWall()">+ Add Wall</button>
+    </div>
+    ${!CW.length
+      ? `<div class="empty-state" style="padding:40px"><div class="empty-icon">🖥</div><div class="empty-title">No walls yet</div><p class="empty-sub">Add a wall to run the LED engine.</p></div>`
+      : `<div style="display:flex;flex-direction:column;gap:10px">
+          ${CW.map((w,i) => {
+            const hasEngine = !!w.calculated_output;
+            return `<div style="background:#fff;border:1.5px solid ${hasEngine?'var(--color-border-light)':'#fbbf24'};border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div style="flex:1">
+                <div style="font-family:'Barlow',sans-serif;font-size:15px;font-weight:700;margin-bottom:4px">${escH(w.name)}</div>
+                <div class="text-small text-muted">
+                  ${w.width_ft}′ × ${w.height_ft}′ · Qty ${w.qty} · 
+                  <span class="tag ${w.mount_type==='flown'?'tag-blue':'tag-yellow'}" style="font-size:10px">${w.mount_type||'flown'}</span>
+                  ${hasEngine ? ` · ${w.calculated_output.grid.total * w.qty} panels · ${w.calculated_output.dataChains * w.qty} data ports` : ''}
+                </div>
+                ${!hasEngine ? `<div style="font-size:12px;color:#d97706;margin-top:6px;font-weight:600">⚠ Panel not selected — engine not run yet</div>` : ''}
+              </div>
+              <div style="display:flex;gap:6px">
+                ${hasEngine
+                  ? `<button class="btn btn-primary" style="font-size:12px;padding:6px 12px" onclick="window.Projects.switchWall(${i});window.Projects.showTab('sum')">View Data</button>`
+                  : `<button class="btn btn-primary" style="font-size:12px;padding:6px 12px" onclick="window.Projects.openConfigWall('${w.id}',${w.width_ft},${w.height_ft},${w.qty},'${w.mount_type||'flown'}')">⚡ Configure & Run Engine</button>`}
+                <button class="btn btn-danger" style="font-size:12px;padding:6px 10px" onclick="window.Projects.deleteWall('${w.id}')">✕</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`}`;
 }
 
 // ── TAB / WALL SWITCHING ────────────────────────────────────
@@ -508,6 +548,70 @@ async function removeAssign(id) {
 }
 
 // ── ADD WALL ────────────────────────────────────────────────
+async function openConfigWall(wallId, widthFt, heightFt, qty, mountType) {
+  // Pre-fill the add wall form with existing dimensions, then save and delete old placeholder
+  const panels = await fetchPanels();
+  document.getElementById('aw-overlay').classList.add('open');
+  document.getElementById('aw-body').innerHTML=`
+    <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px">
+      ⚡ Configure this wall to run the LED calculation engine. Dimensions are pre-filled from your proposal.
+    </div>
+    <div class="form-grid form-grid-2" style="gap:12px;margin-bottom:14px">
+      <div class="form-field"><label class="form-label">Wall Name</label><input class="form-input" id="aw-n" value="Main Wall"></div>
+      <div class="form-field"><label class="form-label">Location</label><input class="form-input" id="aw-loc" value="Main"></div>
+      <div class="form-field"><label class="form-label">Panel *</label>
+        <select class="form-select" id="aw-p">
+          ${panels.map(p=>`<option value="${p.id}" data-pitch="${p.panel_data?.pitch||3.9}" data-size="${p.panel_data?.size||1000}" data-power="${p.panel_data?.power||150}">${escH(p.name)}</option>`).join('')}
+        </select></div>
+      <div class="form-field"><label class="form-label">Width (ft)</label><input class="form-input" id="aw-w" type="number" value="${widthFt}" min="1" step="0.5"></div>
+      <div class="form-field"><label class="form-label">Height (ft)</label><input class="form-input" id="aw-h" type="number" value="${heightFt}" min="1" step="0.5"></div>
+      <div class="form-field"><label class="form-label">Mount</label>
+        <select class="form-select" id="aw-m">
+          <option value="flown" ${mountType==='flown'?'selected':''}>Flown</option>
+          <option value="ground" ${mountType==='ground'?'selected':''}>Ground</option>
+        </select></div>
+      <div class="form-field"><label class="form-label">Panel Mode</label>
+        <select class="form-select" id="aw-pm"><option value="mixed">Mixed</option><option value="1000">1000mm tall</option><option value="500">500mm square</option></select></div>
+      <div class="form-field"><label class="form-label">Qty</label><input class="form-input" id="aw-q" type="number" value="${qty}" min="1"></div>
+      <div class="form-field"><label class="form-label">Proc Distance (ft)</label><input class="form-input" id="aw-pd" type="number" value="30" min="0"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="document.getElementById('aw-overlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="window.Projects._saveConfigWall('${wallId}')">⚡ Run Engine & Save</button>
+    </div>`;
+}
+
+async function _saveConfigWall(oldWallId) {
+  const ps = document.getElementById('aw-p');
+  const po = ps?.options[ps.selectedIndex];
+  const inputs = {
+    widthFt: parseFloat(document.getElementById('aw-w')?.value)||20,
+    heightFt: parseFloat(document.getElementById('aw-h')?.value)||12,
+    panelMode: document.getElementById('aw-pm')?.value||'mixed',
+    support: document.getElementById('aw-m')?.value||'flown',
+    pitch: parseFloat(po?.dataset.pitch)||3.9,
+    qty: parseInt(document.getElementById('aw-q')?.value)||1,
+    procDist: parseFloat(document.getElementById('aw-pd')?.value)||30,
+    powerDist: 25, laptops:0, cameras:0,
+    inv1000: po?.dataset.size==='1000'?60:0,
+    inv500: po?.dataset.size==='500'?60:0,
+    panel_name: po?.text||'', panel_power: parseInt(po?.dataset.power)||150,
+  };
+  const calc = runEngine(inputs);
+  // Update the existing wall record instead of creating a new one
+  await supabase.from('walls').update({
+    name: document.getElementById('aw-n')?.value.trim()||'Main Wall',
+    location_label: document.getElementById('aw-loc')?.value.trim()||'Main',
+    width_ft: inputs.widthFt, height_ft: inputs.heightFt,
+    panel_id: ps?.value, mount_type: inputs.support,
+    panel_mode: inputs.panelMode, qty: inputs.qty,
+    calculated_output: calc,
+  }).eq('id', oldWallId);
+  document.getElementById('aw-overlay').classList.remove('open');
+  showToast('Engine run complete!','success');
+  openProject(CP.id);
+}
+
 async function addWall() {
   const panels=await fetchPanels();
   document.getElementById('aw-body').innerHTML=`<div class="form-grid form-grid-2" style="gap:12px;margin-bottom:14px"><div class="form-field"><label class="form-label">Wall Name</label><input class="form-input" id="aw-n" value="Wall ${CW.length+1}"></div><div class="form-field"><label class="form-label">Location Label</label><input class="form-input" id="aw-loc" placeholder="e.g. Stage A, Lobby, Main"></div><div class="form-field"><label class="form-label">Panel</label><select class="form-select" id="aw-p">${panels.map(p=>`<option value="${p.id}" data-pitch="${p.panel_data?.pitch}" data-size="${p.panel_data?.size}" data-power="${p.panel_data?.power}">${escH(p.name)}</option>`).join('')}</select></div><div class="form-field"><label class="form-label">Width (ft)</label><input class="form-input" id="aw-w" type="number" placeholder="20" min="1" step="0.5"></div><div class="form-field"><label class="form-label">Height (ft)</label><input class="form-input" id="aw-h" type="number" placeholder="12" min="1" step="0.5"></div><div class="form-field"><label class="form-label">Mount</label><select class="form-select" id="aw-m"><option value="flown">Flown</option><option value="ground">Ground</option></select></div><div class="form-field"><label class="form-label">Panel Mode</label><select class="form-select" id="aw-pm"><option value="mixed">Mixed</option><option value="1000">1000mm tall</option><option value="500">500mm square</option></select></div><div class="form-field"><label class="form-label">Qty</label><input class="form-input" id="aw-q" type="number" value="1" min="1"></div><div class="form-field"><label class="form-label">Proc Distance (ft)</label><input class="form-input" id="aw-pd" type="number" value="30" min="0"></div></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" onclick="document.getElementById('aw-overlay').classList.remove('open')">Cancel</button><button class="btn btn-primary" onclick="window.Projects._saveWall()">Add Wall</button></div>`;
@@ -896,5 +1000,6 @@ function _removeShowDay(i) {
 window.Projects={
   openWizard,closeWizard,openProject,deleteProject,setStatus,exportPDF,openCreateProposal,
   addWall,deleteWall,switchWall,switchDiag,showTab,openAssign,removeAssign,_loadTeam,
+  openConfigWall,_saveConfigWall,
   _wSel,_wSelPanel,_wSelClient,_wNext,_wBack,_wFinish,_saveWall,_doAssign,_addShowDay,_removeShowDay,setPackView,_loadProjLogistics,
 };
