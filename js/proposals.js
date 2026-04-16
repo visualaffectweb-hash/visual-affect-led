@@ -1141,22 +1141,76 @@ async function exportPDF(id) {
 async function convertToProject(proposalId) {
   const p=_currentProposal?.id===proposalId?_currentProposal:await _fetchProposal(proposalId); if(!p)return;
   if(!confirm('Convert this proposal to an active project?'))return;
+
   const s=p.schedule||{};
+
+  // Create the project record
   const{data:project,error}=await supabase.from('projects').insert({
-    name:p.title,contact_id:p.contact_id||p.client_id||null,
-    proposal_id:proposalId,status:'planning',
-    event_start_date:s.loadIn?.date||null,event_end_date:s.loadOut?.date||null,
-    environment:p.environment||'indoor',support_method:p.support_method||'',
-    scope_notes:p.scope_notes||'',jobsite_address:p.jobsite_address||'',
-    wall_specs:p.wall_specs||[],schedule:p.schedule||{},created_by:getProfile().id,
+    name:p.title,
+    contact_id:p.contact_id||null,
+    proposal_id:proposalId,
+    status:'planning',
+    event_start_date:s.loadIn?.date||null,
+    event_end_date:s.loadOut?.date||null,
+    environment:p.environment||'indoor',
+    support_method:p.support_method||'',
+    scope_notes:p.scope_notes||'',
+    jobsite_address:p.jobsite_address||'',
+    wall_specs:p.wall_specs||[],
+    schedule:p.schedule||{},
+    rigging_responsibility:p.rigging_responsibility||'',
+    created_by:getProfile().id,
+    owner_id:getProfile().id,
   }).select().single();
   if(error){showToast('Failed to create project.','error');console.error(error);return;}
-  await supabase.from('proposals').update({project_id:project.id,contracting_stage:'active',status:'approved'}).eq('id',proposalId);
+
+  // Auto-create wall placeholder records from proposal wall_specs
+  const wallSpecs = Array.isArray(p.wall_specs) ? p.wall_specs : [];
+  if (wallSpecs.length) {
+    const wallInserts = wallSpecs.map((w,i) => ({
+      project_id: project.id,
+      name: wallSpecs.length === 1 ? 'Main Wall' : `Wall ${i+1}`,
+      width_ft: parseFloat(w.width)||0,
+      height_ft: parseFloat(w.height)||0,
+      qty: parseInt(w.qty)||1,
+      mount_type: (p.support_method||'').toLowerCase().includes('ground')||
+                  (p.support_method||'').toLowerCase().includes('riser') ? 'ground' : 'flown',
+      panel_mode: 'mixed',
+      order_index: i,
+      location_label: wallSpecs.length === 1 ? 'Main' : `Wall ${i+1}`,
+      calculated_output: null,
+    }));
+    await supabase.from('walls').insert(wallInserts).catch(e=>console.error('[Wall insert]',e));
+  }
+
+  // Create open crew booking slots from labor positions
+  const positions = Array.isArray(p.labor_positions) ? p.labor_positions : [];
+  if (positions.length) {
+    const bookings = positions.flatMap(pos =>
+      Array.from({length:pos.qty||1}, (_,i) => ({
+        project_id: project.id,
+        phase: 'show',
+        scheduled_hours: pos.hours||0,
+        rate_used: pos.rate||0,
+        notes: `[OPEN POSITION] ${pos.role}${pos.notes?' — '+pos.notes:''}`,
+        date: s.loadIn?.date || null,
+      }))
+    );
+    await supabase.from('crew_bookings').insert(bookings).catch(e=>console.error('[Crew insert]',e));
+  }
+
+  // Link proposal to project
+  await supabase.from('proposals').update({
+    project_id:project.id,
+    contracting_stage:'active',
+    status:'approved'
+  }).eq('id',proposalId);
+
   if(_currentProposal?.id===proposalId){_currentProposal.project_id=project.id;}
   await logActivity('proposal',proposalId,'converted_to_project',{project_id:project.id});
-  showToast('Project created!','success');
+  showToast('Project created! Wall placeholders added — open each wall to run the LED engine.','success');
   window.navigateTo('projects');
-  setTimeout(()=>window.Projects?.openProject?.(project.id),400);
+  setTimeout(()=>window.Projects?.openProject?.(project.id),500);
 }
 
 async function deleteProposal(id) {

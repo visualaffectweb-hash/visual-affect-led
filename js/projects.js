@@ -278,15 +278,24 @@ function _renderProjView(mc) {
 function _sumTab(wall) {
   const p = CP;
   // Show project info even if no wall data yet
+  const sch = p.schedule||{};
+  const showDays = (sch.showDays||[]).filter(sd=>sd.date);
   const projectInfo = `
     <div class="card" style="margin-bottom:14px;padding:14px">
-      <div style="font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px">Project Details</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-family:'Barlow',sans-serif;font-size:13px;font-weight:700">Project Scope</div>
+        ${p.proposal_id?`<button class="btn" style="font-size:11px;padding:4px 9px" onclick="window.navigateTo('proposals');setTimeout(()=>window.Proposals?.openProposal?.('${p.proposal_id}'),300)">View Proposal →</button>`:''}
+      </div>
       <div class="form-grid form-grid-2" style="gap:10px">
-        ${p.event_start_date?`<div><div class="form-label">Load In</div><div style="font-size:13px;margin-top:3px">${fmtDate(p.event_start_date)}</div></div>`:''}
-        ${p.event_end_date?`<div><div class="form-label">Load Out</div><div style="font-size:13px;margin-top:3px">${fmtDate(p.event_end_date)}</div></div>`:''}
+        ${p.jobsite_address?`<div style="grid-column:1/-1"><div class="form-label">Jobsite</div><div style="font-size:13px;margin-top:3px">${escH(p.jobsite_address)}</div></div>`:''}
+        ${p.event_start_date||sch.loadIn?.date?`<div><div class="form-label">Load In</div><div style="font-size:13px;margin-top:3px">${fmtDate(p.event_start_date||sch.loadIn?.date)}${sch.loadIn?.time?' · '+fmtTime(sch.loadIn.time):''}</div></div>`:''}
+        ${showDays.length?`<div><div class="form-label">Show Days</div><div style="font-size:13px;margin-top:3px">${showDays.map(sd=>fmtDate(sd.date)+(sd.startTime?' '+fmtTime(sd.startTime):'')).join('<br>')}</div></div>`:''}
+        ${p.event_end_date||sch.loadOut?.date?`<div><div class="form-label">Load Out</div><div style="font-size:13px;margin-top:3px">${fmtDate(p.event_end_date||sch.loadOut?.date)}${sch.loadOut?.time?' · '+fmtTime(sch.loadOut.time):''}</div></div>`:''}
         ${p.environment?`<div><div class="form-label">Environment</div><div style="font-size:13px;margin-top:3px">${escH(p.environment)}</div></div>`:''}
         ${p.support_method?`<div><div class="form-label">Support Method</div><div style="font-size:13px;margin-top:3px">${escH(p.support_method)}</div></div>`:''}
-        ${p.scope_notes?`<div style="grid-column:1/-1"><div class="form-label">Scope Notes</div><div style="font-size:13px;margin-top:3px;line-height:1.6">${escH(p.scope_notes)}</div></div>`:''}
+        ${p.rigging_responsibility?`<div><div class="form-label">Rigging</div><div style="font-size:13px;margin-top:3px">${escH(p.rigging_responsibility)}</div></div>`:''}
+        ${(p.wall_specs||[]).length?`<div style="grid-column:1/-1"><div class="form-label">Wall Specifications</div><div style="font-size:13px;margin-top:3px">${(p.wall_specs||[]).map((w,i)=>`Wall ${i+1}: ${w.width}ft × ${w.height}ft · Qty ${w.qty}`).join('<br>')}</div></div>`:''}
+        ${p.scope_notes?`<div style="grid-column:1/-1"><div class="form-label">Scope of Work</div><div style="font-size:13px;margin-top:3px;line-height:1.6;white-space:pre-wrap">${escH(p.scope_notes)}</div></div>`:''}
       </div>
     </div>`;
   if (!wall?.calculated_output) return projectInfo + `<div class="empty-state"><div class="empty-title">No wall data yet</div><p class="empty-sub">Click <strong>+ Add Wall</strong> to start the LED engine.</p></div>`;
@@ -437,10 +446,39 @@ function switchDiag(mode) {
 
 // ── TEAM ───────────────────────────────────────────────────
 async function _loadTeam() {
-  const {data:asgn} = await supabase.from('project_assignments').select('*,profiles(first_name,last_name,role)').eq('project_id',CP.id);
-  const el=document.getElementById('team-list'); if (!el) return;
-  if (!asgn?.length) { el.innerHTML=`<div class="empty-state" style="padding:30px"><div class="empty-title">No team members assigned</div></div>`; return; }
-  el.innerHTML=`<div class="table-wrap"><table class="data-table"><thead><tr><th>Name</th><th>Role</th><th>Project Role</th><th></th></tr></thead><tbody>${asgn.map(a=>`<tr><td>${a.profiles?.first_name} ${a.profiles?.last_name}</td><td><span class="badge badge-${a.profiles?.role}">${a.profiles?.role}</span></td><td>${escH(a.role_on_project||'')}</td><td><button class="btn btn-danger" style="font-size:11px;padding:4px 9px" onclick="window.Projects.removeAssign('${a.id}')">Remove</button></td></tr>`).join('')}</tbody></table></div>`;
+  const el=document.getElementById('team-list'); if (!el||!CP) return;
+  const [{data:asgn},{data:openBookings}] = await Promise.all([
+    supabase.from('project_assignments').select('*,profiles(first_name,last_name,role)').eq('project_id',CP.id),
+    supabase.from('crew_bookings').select('*').eq('project_id',CP.id).is('crew_member_id',null),
+  ]);
+  const openPositions=(openBookings||[]).filter(b=>b.notes?.startsWith('[OPEN POSITION]'));
+  el.innerHTML=`
+    ${openPositions.length?`<div class="card" style="margin-bottom:14px;padding:14px">
+      <div style="font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px;color:#d97706">⚠ Open Positions — Crew Needed</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${openPositions.map(b=>{
+          const parts=(b.notes||'').replace('[OPEN POSITION] ','').split(' — ');
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fffbeb;border:1.5px solid #fbbf24;border-radius:6px">
+            <div>
+              <div style="font-weight:600;font-size:13px">${escH(parts[0]||'Position')}</div>
+              <div class="text-small text-muted">${b.scheduled_hours||0}h · $${b.rate_used||0}/hr${parts[1]?' · '+escH(parts[1]):''}</div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:#d97706">UNFILLED</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+    ${!asgn?.length
+      ?`<div class="empty-state" style="padding:30px"><div class="empty-title">No team members assigned</div><p class="empty-sub">Use the button above to assign app users to this project.</p></div>`
+      :`<div class="table-wrap"><table class="data-table">
+          <thead><tr><th>Name</th><th>Role</th><th>Project Role</th><th></th></tr></thead>
+          <tbody>${asgn.map(a=>`<tr>
+            <td><strong>${a.profiles?.first_name||''} ${a.profiles?.last_name||''}</strong></td>
+            <td class="text-small">${a.profiles?.role||''}</td>
+            <td class="text-small">${escH(a.role_on_project||'')}</td>
+            <td><button class="btn btn-danger" style="font-size:11px;padding:4px 9px" onclick="window.Projects.removeAssign('${a.id}')">Remove</button></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}`;
 }
 
 async function openAssign() {
