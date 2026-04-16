@@ -310,8 +310,9 @@ function getFiltered() {
     if (_filterProject && _filterProject !== 'none' && t.project_id !== _filterProject) return false;
     if (_filterStatus && t.status !== _filterStatus) return false;
     if (_filterAssignee && t.assigned_to !== _filterAssignee) return false;
-    // Hide internal lead tasks from main view
+    // Hide internal lead/proposal tasks from global view — they live in those modules
     if (t.description?.startsWith('lead:') && !_filterProject) return false;
+    if (t.description?.startsWith('proposal:') && !_filterProject) return false;
     return true;
   });
 }
