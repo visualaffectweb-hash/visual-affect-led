@@ -673,7 +673,7 @@ async function _wFinish() {
   _wizLaborPositions.forEach(pos=>lineItems.push({name:pos.role,qty:pos.hours*(pos.qty||1),unit:'hr',unit_price:pos.rate,group:'Labor',is_labor_position:true,labor_qty:pos.qty,labor_hours:pos.hours,labor_notes:pos.notes}));
   const proposalData={
     title:_wizardAnswers.title||'Untitled Proposal',
-    contact_id:contactId||null,client_id:contactId||null,
+    contact_id:contactId||null,
     owner_id:getProfile().id,status:'draft',
     lead_id:_wizardAnswers._lead_id||null,
     proposal_groups:_wizGroups,line_items:lineItems,
@@ -1135,7 +1135,7 @@ async function convertToProject(proposalId) {
   if(!confirm('Convert this proposal to an active project?'))return;
   const s=p.schedule||{};
   const{data:project,error}=await supabase.from('projects').insert({
-    name:p.title,client_id:p.client_id||null,contact_id:p.contact_id||null,
+    name:p.title,contact_id:p.contact_id||p.client_id||null,
     proposal_id:proposalId,status:'planning',
     event_start_date:s.loadIn?.date||null,event_end_date:s.loadOut?.date||null,
     environment:p.environment||'indoor',support_method:p.support_method||'',
