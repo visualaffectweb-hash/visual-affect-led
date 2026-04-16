@@ -463,7 +463,7 @@ function _activityShell() {
         <option value="meeting">🤝 Meeting</option>
       </select>
       <textarea class="form-input form-textarea" id="ca-body" placeholder="What happened? Notes from a call, email summary, meeting notes..." rows="3"></textarea>
-      <button class="btn btn-primary" style="margin-top:10px" onclick="window.Contacts.logActivity()">Log</button>
+      <button class="btn btn-primary" style="margin-top:10px" onclick="window.Contacts.logContactActivity()">Log</button>
     </div>
     <div id="contact-activity-tl"></div>`;
 }
@@ -487,7 +487,7 @@ async function _loadActivity() {
         </div>`).join('')}</div>`;
 }
 
-async function logActivity() {
+async function logContactActivity() {
   const type = document.getElementById('ca-type')?.value || 'note';
   const body = document.getElementById('ca-body')?.value.trim();
   if (!body) { showToast('Please enter activity details.', 'error'); return; }
@@ -774,7 +774,7 @@ function showToast(msg,type='success'){window.showToast?.(msg,type);}
 window.Contacts = {
   openAdd, openEdit, openContact, closeModal, saveContact, deleteContact,
   filterType, search, showTab,
-  logActivity, addTask, _saveTask, _markTaskDone,
+  logContactActivity, addTask, _saveTask, _markTaskDone,
   uploadFiles, deleteFile, _filterFiles,
   editCOI, saveCOI, openNewProposal,
   _updateTypeBorder,
