@@ -39,7 +39,7 @@ function projectCard(p, showOwner) {
       ${p.address?`<br>📍 ${escH(p.address)}`:''}
       ${p.event_start_date?`<br>📅 ${fmtDate(p.event_start_date)}`:''}
       ${wc>0?`<br>🖥 ${wc} wall${wc!==1?'s':''}`:''}
-      ${p.clients?.company_name?`<br>👥 ${escH(p.clients.company_name)}`:''}
+      ${(p.contacts?.company_name||p.clients?.company_name)?`<br>👥 ${escH(p.contacts?.company_name||p.clients?.company_name)}`:''}
     </div>
     <div style="display:flex;gap:7px;margin-top:12px;padding-top:11px;border-top:1px solid var(--color-border-light);flex-wrap:wrap">
       <button class="btn btn-primary" style="font-size:12px;padding:6px 13px" onclick="window.Projects.openProject('${p.id}')">Open</button>
@@ -52,7 +52,7 @@ function projectCard(p, showOwner) {
 // ── DATA ───────────────────────────────────────────────────
 async function fetchProjects() {
   const profile = getProfile(); const admin = isAdmin();
-  let q = supabase.from('projects').select('*,clients(company_name),profiles!projects_owner_id_fkey(first_name,last_name),walls(id,name,width_ft,height_ft,calculated_output)').order('created_at',{ascending:false});
+  let q = supabase.from('projects').select('*,clients(company_name),contacts(company_name),profiles!projects_owner_id_fkey(first_name,last_name),walls(id,name,width_ft,height_ft,calculated_output)').order('created_at',{ascending:false});
   if (!admin) {
     const {data:asgn} = await supabase.from('project_assignments').select('project_id').eq('user_id',profile.id);
     const ids = (asgn||[]).map(a=>a.project_id);
@@ -223,7 +223,7 @@ async function openProject(id) {
   document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
   const mc=document.getElementById('main-content');
   mc.innerHTML=`<div class="loading-state"><div class="spinner"></div><div>Loading...</div></div>`;
-  const {data:p,error} = await supabase.from('projects').select('*,clients(*),profiles!projects_owner_id_fkey(first_name,last_name),walls(*)').eq('id',id).single();
+  const {data:p,error} = await supabase.from('projects').select('*,clients(*),contacts(*),profiles!projects_owner_id_fkey(first_name,last_name),walls(*)').eq('id',id).single();
   if (error||!p) { mc.innerHTML=`<div class="empty-state"><div class="empty-title">Project not found</div></div>`; return; }
   CP=p; CW=(p.walls||[]).sort((a,b)=>a.order_index-b.order_index); CWI=0;
   _renderProjView(mc);
@@ -240,13 +240,14 @@ function _renderProjView(mc) {
           <span class="tag ${sc[p.status]||'tag-yellow'}">${p.status}</span>
         </div>
         <div style="font-family:'Barlow',sans-serif;font-size:24px;font-weight:800">${escH(p.name)}</div>
-        ${p.address?`<div class="text-small text-muted" style="margin-top:3px">📍 ${escH(p.address)}</div>`:''}
-        <div class="text-small text-muted" style="margin-top:2px">${p.event_start_date?`📅 ${fmtDate(p.event_start_date)}${p.event_end_date?' → '+fmtDate(p.event_end_date):''}`:''} ${p.clients?.company_name?`· 👥 ${escH(p.clients.company_name)}`:''}</div>
+        ${(p.jobsite_address||p.address)?`<div class="text-small text-muted" style="margin-top:3px">📍 ${escH(p.jobsite_address||p.address||'')}</div>`:''}
+        <div class="text-small text-muted" style="margin-top:2px">${p.event_start_date?`📅 ${fmtDate(p.event_start_date)}${p.event_end_date?' → '+fmtDate(p.event_end_date):''}`:''} ${(p.contacts?.company_name||p.clients?.company_name)?`· 👥 ${escH(p.contacts?.company_name||p.clients?.company_name)}`:''}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <select class="form-select" style="font-size:12px;padding:6px 10px" onchange="window.Projects.setStatus('${p.id}',this.value)">
           ${['planning','confirmed','active','completed','cancelled'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}
         </select>
+        ${p.proposal_id?`<button class="btn" onclick="window.navigateTo('proposals');setTimeout(()=>window.Proposals?.openProposal?.('${p.proposal_id}'),300)">View Proposal →</button>`:''}
         <button class="btn btn-primary" onclick="window.Projects.addWall()">+ Add Wall</button>
         <button class="btn btn-blue" onclick="window.Projects.exportPDF('${p.id}')">⬇ PDF</button>
       </div>
@@ -275,11 +276,27 @@ function _renderProjView(mc) {
 }
 
 function _sumTab(wall) {
-  if (!wall?.calculated_output) return `<div class="empty-state"><div class="empty-title">No wall data</div></div>`;
+  const p = CP;
+  // Show project info even if no wall data yet
+  const projectInfo = `
+    <div class="card" style="margin-bottom:14px;padding:14px">
+      <div style="font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px">Project Details</div>
+      <div class="form-grid form-grid-2" style="gap:10px">
+        ${p.event_start_date?`<div><div class="form-label">Load In</div><div style="font-size:13px;margin-top:3px">${fmtDate(p.event_start_date)}</div></div>`:''}
+        ${p.event_end_date?`<div><div class="form-label">Load Out</div><div style="font-size:13px;margin-top:3px">${fmtDate(p.event_end_date)}</div></div>`:''}
+        ${p.environment?`<div><div class="form-label">Environment</div><div style="font-size:13px;margin-top:3px">${escH(p.environment)}</div></div>`:''}
+        ${p.support_method?`<div><div class="form-label">Support Method</div><div style="font-size:13px;margin-top:3px">${escH(p.support_method)}</div></div>`:''}
+        ${p.scope_notes?`<div style="grid-column:1/-1"><div class="form-label">Scope Notes</div><div style="font-size:13px;margin-top:3px;line-height:1.6">${escH(p.scope_notes)}</div></div>`:''}
+      </div>
+    </div>`;
+  if (!wall?.calculated_output) return projectInfo + `<div class="empty-state"><div class="empty-title">No wall data yet</div><p class="empty-sub">Click <strong>+ Add Wall</strong> to start the LED engine.</p></div>`;
   const out=wall.calculated_output, g=out.grid;
   const stat=out.warn?`<div class="alert alert-warn">⚠ ${out.warn}</div>`:`<div class="alert alert-ok">✓ OK — ${g.total*wall.qty} total panels · ${out.dataChains*wall.qty} data ports</div>`;
+  return projectInfo + stat + `<div class="summary-grid">${cards}</div>`;
+}
+function _sumTab_old(wall) { // unused
   const cards=[{l:'Built Size',v:`${(g.widthMm/304.8).toFixed(1)}′×${(g.heightMm/304.8).toFixed(1)}′`,s:'each wall'},{l:'Resolution',v:`${out.pxW}×${out.pxH}`,s:'pixels'},{l:'Aspect',v:out.near,s:`${out.si.w}:${out.si.h}`},{l:'Panels Each',v:g.total,s:`${g.p1000}×1000, ${g.p500}×500`},{l:'Panel',v:escH(out.panel_name||'—'),s:`${out.pitch}mm · ${out.panel_power||'—'}W`},{l:'Data Chains',v:out.dataChains,s:'per wall'},{l:'Power Chains',v:out.powerChainCount,s:'per wall'},{l:'Circuits',v:out.circuits,s:'20A/120V est.'}].map(c=>`<div class="summary-card"><div class="summary-card-label">${c.l}</div><div class="summary-card-value">${c.v}</div><div class="summary-card-sub">${c.s}</div></div>`).join('');
-  return `${stat}<div class="summary-grid">${cards}</div>`;
+  // return handled above
 }
 
 function _diagTab(wall) {
