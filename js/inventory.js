@@ -368,8 +368,9 @@ async function saveItem(existingId) {
   const name = _v('if-name');
   const cat = document.getElementById('if-cat')?.value;
   if (!name) { _msg('inv-form-msg','Item name is required.',true); return; }
-
   const isPanel = cat === 'LED Panels';
+  if (isPanel && !_v('if-pitch')) { _msg('inv-form-msg','Pixel pitch is required for LED Panels.',true); return; }
+
   const panelData = isPanel ? {
     pitch: parseFloat(_v('if-pitch')) || null,
     size: document.getElementById('if-psize')?.value || '1000',

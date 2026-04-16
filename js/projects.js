@@ -39,7 +39,7 @@ function projectCard(p, showOwner) {
       ${p.address?`<br>📍 ${escH(p.address)}`:''}
       ${p.event_start_date?`<br>📅 ${fmtDate(p.event_start_date)}`:''}
       ${wc>0?`<br>🖥 ${wc} wall${wc!==1?'s':''}`:''}
-      ${(p.contacts?.company_name||p.clients?.company_name)?`<br>👥 ${escH(p.contacts?.company_name||p.clients?.company_name)}`:''}
+      ${(p.contacts?.company_name||p.contacts?.company_name)?`<br>👥 ${escH(p.contacts?.company_name||p.contacts?.company_name)}`:''}
     </div>
     <div style="display:flex;gap:7px;margin-top:12px;padding-top:11px;border-top:1px solid var(--color-border-light);flex-wrap:wrap">
       <button class="btn btn-primary" style="font-size:12px;padding:6px 13px" onclick="window.Projects.openProject('${p.id}')">Open</button>
@@ -52,7 +52,7 @@ function projectCard(p, showOwner) {
 // ── DATA ───────────────────────────────────────────────────
 async function fetchProjects() {
   const profile = getProfile(); const admin = isAdmin();
-  let q = supabase.from('projects').select('*,clients(company_name),contacts(company_name),profiles!projects_owner_id_fkey(first_name,last_name),walls(id,name,width_ft,height_ft,calculated_output)').order('created_at',{ascending:false});
+  let q = supabase.from('projects').select('*,contacts(company_name),profiles!projects_owner_id_fkey(first_name,last_name),walls(id,name,width_ft,height_ft,calculated_output)').order('created_at',{ascending:false});
   if (!admin) {
     const {data:asgn} = await supabase.from('project_assignments').select('project_id').eq('user_id',profile.id);
     const ids = (asgn||[]).map(a=>a.project_id);
@@ -69,7 +69,7 @@ async function fetchPanels() {
   return data||[];
 }
 async function fetchClients() {
-  const {data} = await supabase.from('clients').select('id,company_name,contact_name').order('company_name');
+  const {data} = await supabase.from('contacts').select('id,company_name,contact_name').order('company_name');
   return data||[];
 }
 async function fetchUsers() {
@@ -223,7 +223,7 @@ async function openProject(id) {
   document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
   const mc=document.getElementById('main-content');
   mc.innerHTML=`<div class="loading-state"><div class="spinner"></div><div>Loading...</div></div>`;
-  const {data:p,error} = await supabase.from('projects').select('*,clients(*),contacts(*),profiles!projects_owner_id_fkey(first_name,last_name),walls(*)').eq('id',id).single();
+  const {data:p,error} = await supabase.from('projects').select('*,contacts(*),profiles!projects_owner_id_fkey(first_name,last_name),walls(*)').eq('id',id).single();
   if (error||!p) { mc.innerHTML=`<div class="empty-state"><div class="empty-title">Project not found</div></div>`; return; }
   CP=p; CW=(p.walls||[]).sort((a,b)=>a.order_index-b.order_index); CWI=0;
   _renderProjView(mc);
@@ -241,7 +241,7 @@ function _renderProjView(mc) {
         </div>
         <div style="font-family:'Barlow',sans-serif;font-size:24px;font-weight:800">${escH(p.name)}</div>
         ${(p.jobsite_address||p.address)?`<div class="text-small text-muted" style="margin-top:3px">📍 ${escH(p.jobsite_address||p.address||'')}</div>`:''}
-        <div class="text-small text-muted" style="margin-top:2px">${p.event_start_date?`📅 ${fmtDate(p.event_start_date)}${p.event_end_date?' → '+fmtDate(p.event_end_date):''}`:''} ${(p.contacts?.company_name||p.clients?.company_name)?`· 👥 ${escH(p.contacts?.company_name||p.clients?.company_name)}`:''}</div>
+        <div class="text-small text-muted" style="margin-top:2px">${p.event_start_date?`📅 ${fmtDate(p.event_start_date)}${p.event_end_date?' → '+fmtDate(p.event_end_date):''}`:''} ${(p.contacts?.company_name||p.contacts?.company_name)?`· 👥 ${escH(p.contacts?.company_name||p.contacts?.company_name)}`:''}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <select class="form-select" style="font-size:12px;padding:6px 10px" onchange="window.Projects.setStatus('${p.id}',this.value)">

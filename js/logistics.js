@@ -50,7 +50,7 @@ export async function openProjectLogistics(projectId, projectName) {
   const mc = document.getElementById('main-content');
   mc.innerHTML = `<div class="loading-state"><div class="spinner"></div><div>Loading logistics...</div></div>`;
 
-  const { data: project } = await supabase.from('projects').select('*,clients(*)').eq('id', projectId).single();
+  const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
   CP_NAME = project?.name || CP_NAME;
 
   let { data: logistics } = await supabase.from('logistics').select('*').eq('project_id', projectId).single();

@@ -6,8 +6,8 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 // These values are set in your Netlify environment variables
 // For local dev, replace these temporarily with your actual values
-const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = window.ENV?.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL = window.ENV?.SUPABASE_URL || 'https://cqcbbmchnxjjefcmkcwk.supabase.co';
+const SUPABASE_ANON_KEY = window.ENV?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxY2JibWNobnhqamVmY21rY3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMDQ2MjYsImV4cCI6MjA5MTY4MDYyNn0.rAjJBEbMWsikqHs1u1CYNFbDDXW-z90v7Vm7pSv_6rs';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
