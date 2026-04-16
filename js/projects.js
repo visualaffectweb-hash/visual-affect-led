@@ -549,30 +549,34 @@ async function removeAssign(id) {
 
 // ── ADD WALL ────────────────────────────────────────────────
 async function openConfigWall(wallId, widthFt, heightFt, qty, mountType) {
-  // Pre-fill the add wall form with existing dimensions, then save and delete old placeholder
   const panels = await fetchPanels();
   document.getElementById('aw-overlay').classList.add('open');
+  const hasPanels = panels.length > 0;
   document.getElementById('aw-body').innerHTML=`
     <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px">
-      ⚡ Configure this wall to run the LED calculation engine. Dimensions are pre-filled from your proposal.
+      ⚡ Dimensions pre-filled from your proposal. ${hasPanels?'Select your panel to run the LED engine.':'<strong>No panels in inventory yet</strong> — enter pitch manually below, or add panels in the Inventory module first.'}
     </div>
     <div class="form-grid form-grid-2" style="gap:12px;margin-bottom:14px">
       <div class="form-field"><label class="form-label">Wall Name</label><input class="form-input" id="aw-n" value="Main Wall"></div>
       <div class="form-field"><label class="form-label">Location</label><input class="form-input" id="aw-loc" value="Main"></div>
-      <div class="form-field"><label class="form-label">Panel *</label>
-        <select class="form-select" id="aw-p">
-          ${panels.map(p=>`<option value="${p.id}" data-pitch="${p.panel_data?.pitch||3.9}" data-size="${p.panel_data?.size||1000}" data-power="${p.panel_data?.power||150}">${escH(p.name)}</option>`).join('')}
-        </select></div>
+      ${hasPanels
+        ? `<div class="form-field"><label class="form-label">Panel</label>
+            <select class="form-select" id="aw-p">
+              ${panels.map(p=>`<option value="${p.id}" data-pitch="${p.panel_data?.pitch||3.9}" data-size="${p.panel_data?.size||'1000'}" data-power="${p.panel_data?.power||150}">${escH(p.name)}</option>`).join('')}
+            </select></div>`
+        : `<div class="form-field"><label class="form-label">Pixel Pitch (mm)</label>
+            <input class="form-input" id="aw-pitch" type="number" step="0.1" value="3.9" placeholder="e.g. 3.9">
+            <div class="text-small text-muted" style="margin-top:3px">Add panels in Inventory to select by name</div></div>`}
       <div class="form-field"><label class="form-label">Width (ft)</label><input class="form-input" id="aw-w" type="number" value="${widthFt}" min="1" step="0.5"></div>
       <div class="form-field"><label class="form-label">Height (ft)</label><input class="form-input" id="aw-h" type="number" value="${heightFt}" min="1" step="0.5"></div>
       <div class="form-field"><label class="form-label">Mount</label>
         <select class="form-select" id="aw-m">
-          <option value="flown" ${mountType==='flown'?'selected':''}>Flown</option>
+          <option value="flown" ${(mountType||'flown')==='flown'?'selected':''}>Flown</option>
           <option value="ground" ${mountType==='ground'?'selected':''}>Ground</option>
         </select></div>
       <div class="form-field"><label class="form-label">Panel Mode</label>
-        <select class="form-select" id="aw-pm"><option value="mixed">Mixed</option><option value="1000">1000mm tall</option><option value="500">500mm square</option></select></div>
-      <div class="form-field"><label class="form-label">Qty</label><input class="form-input" id="aw-q" type="number" value="${qty}" min="1"></div>
+        <select class="form-select" id="aw-pm"><option value="mixed">Mixed (auto)</option><option value="1000">1000mm tall</option><option value="500">500mm square</option></select></div>
+      <div class="form-field"><label class="form-label">Qty (identical walls)</label><input class="form-input" id="aw-q" type="number" value="${qty||1}" min="1"></div>
       <div class="form-field"><label class="form-label">Proc Distance (ft)</label><input class="form-input" id="aw-pd" type="number" value="30" min="0"></div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
@@ -583,32 +587,59 @@ async function openConfigWall(wallId, widthFt, heightFt, qty, mountType) {
 
 async function _saveConfigWall(oldWallId) {
   const ps = document.getElementById('aw-p');
-  const po = ps?.options[ps.selectedIndex];
+  const po = ps?.options[ps?.selectedIndex];
+  // Support both panel-from-inventory and manual pitch entry
+  const pitchFromPanel = parseFloat(po?.dataset.pitch);
+  const pitch = ps
+    ? (pitchFromPanel > 0 ? pitchFromPanel : 3.9)
+    : (parseFloat(document.getElementById('aw-pitch')?.value) || 3.9);
+  const panelSize = po?.dataset.size || '1000';
   const inputs = {
-    widthFt: parseFloat(document.getElementById('aw-w')?.value)||20,
-    heightFt: parseFloat(document.getElementById('aw-h')?.value)||12,
-    panelMode: document.getElementById('aw-pm')?.value||'mixed',
-    support: document.getElementById('aw-m')?.value||'flown',
-    pitch: parseFloat(po?.dataset.pitch)||3.9,
-    qty: parseInt(document.getElementById('aw-q')?.value)||1,
-    procDist: parseFloat(document.getElementById('aw-pd')?.value)||30,
-    powerDist: 25, laptops:0, cameras:0,
-    inv1000: po?.dataset.size==='1000'?60:0,
-    inv500: po?.dataset.size==='500'?60:0,
-    panel_name: po?.text||'', panel_power: parseInt(po?.dataset.power)||150,
+    widthFt:   parseFloat(document.getElementById('aw-w')?.value)  || 20,
+    heightFt:  parseFloat(document.getElementById('aw-h')?.value)  || 12,
+    panelMode: document.getElementById('aw-pm')?.value             || 'mixed',
+    support:   document.getElementById('aw-m')?.value              || 'flown',
+    pitch,
+    qty:       parseInt(document.getElementById('aw-q')?.value)    || 1,
+    procDist:  parseFloat(document.getElementById('aw-pd')?.value) || 30,
+    powerDist: 25, laptops: 0, cameras: 0,
+    inv1000:   panelSize === '1000' ? 60 : 0,
+    inv500:    panelSize === '500'  ? 60 : 0,
+    panel_name:  po?.text || `${pitch}mm panel`,
+    panel_power: parseInt(po?.dataset.power) || 150,
   };
-  const calc = runEngine(inputs);
-  // Update the existing wall record instead of creating a new one
-  await supabase.from('walls').update({
-    name: document.getElementById('aw-n')?.value.trim()||'Main Wall',
-    location_label: document.getElementById('aw-loc')?.value.trim()||'Main',
-    width_ft: inputs.widthFt, height_ft: inputs.heightFt,
-    panel_id: ps?.value, mount_type: inputs.support,
-    panel_mode: inputs.panelMode, qty: inputs.qty,
+
+  let calc;
+  console.log('[Engine inputs]', inputs);
+  try {
+    calc = runEngine(inputs);
+    console.log('[Engine output]', calc?.grid);
+  } catch(e) {
+    console.error('[Engine error]', e);
+    showToast('Engine calculation failed — check wall dimensions.', 'error');
+    return;
+  }
+
+  if (!calc || !calc.grid) {
+    showToast('Engine returned no data — check wall dimensions.', 'error');
+    return;
+  }
+
+  const { error } = await supabase.from('walls').update({
+    name:           document.getElementById('aw-n')?.value.trim() || 'Main Wall',
+    location_label: document.getElementById('aw-loc')?.value.trim() || 'Main',
+    width_ft:  inputs.widthFt,
+    height_ft: inputs.heightFt,
+    panel_id:  ps?.value || null,
+    mount_type:   inputs.support,
+    panel_mode:   inputs.panelMode,
+    qty:           inputs.qty,
     calculated_output: calc,
   }).eq('id', oldWallId);
+
+  if (error) { showToast('Failed to save wall.', 'error'); console.error(error); return; }
   document.getElementById('aw-overlay').classList.remove('open');
-  showToast('Engine run complete!','success');
+  showToast('Engine run complete! Diagram and counts are ready.', 'success');
   openProject(CP.id);
 }
 
@@ -619,10 +650,39 @@ async function addWall() {
 }
 
 async function _saveWall() {
-  const ps=document.getElementById('aw-p'); const po=ps?.options[ps.selectedIndex];
-  const inputs={widthFt:parseFloat(document.getElementById('aw-w')?.value)||20,heightFt:parseFloat(document.getElementById('aw-h')?.value)||12,panelMode:document.getElementById('aw-pm')?.value||'mixed',support:document.getElementById('aw-m')?.value||'flown',pitch:parseFloat(po?.dataset.pitch)||3.9,qty:parseInt(document.getElementById('aw-q')?.value)||1,procDist:parseFloat(document.getElementById('aw-pd')?.value)||30,powerDist:25,laptops:0,cameras:0,inv1000:po?.dataset.size==='1000'?60:0,inv500:po?.dataset.size==='500'?60:0,panel_id:ps?.value,panel_name:po?.text||'',panel_power:parseInt(po?.dataset.power)||150};
-  const calc=runEngine(inputs);
-  await dbInsert('walls',{project_id:CP.id,name:document.getElementById('aw-n')?.value.trim()||`Wall ${CW.length+1}`,order_index:CW.length,width_ft:inputs.widthFt,height_ft:inputs.heightFt,panel_id:ps?.value,mount_type:inputs.support,panel_mode:inputs.panelMode,qty:inputs.qty,calculated_output:calc,location_label:document.getElementById('aw-loc')?.value.trim()||'Main'});
+  const ps=document.getElementById('aw-p');
+  const po=ps?.options[ps?.selectedIndex];
+  const pitchVal = parseFloat(po?.dataset.pitch);
+  const pitch = pitchVal > 0 ? pitchVal : 3.9;
+  const panelSize = po?.dataset.size||'1000';
+  const inputs={
+    widthFt:parseFloat(document.getElementById('aw-w')?.value)||20,
+    heightFt:parseFloat(document.getElementById('aw-h')?.value)||12,
+    panelMode:document.getElementById('aw-pm')?.value||'mixed',
+    support:document.getElementById('aw-m')?.value||'flown',
+    pitch, qty:parseInt(document.getElementById('aw-q')?.value)||1,
+    procDist:parseFloat(document.getElementById('aw-pd')?.value)||30,
+    powerDist:25,laptops:0,cameras:0,
+    inv1000:panelSize==='1000'?60:0,
+    inv500:panelSize==='500'?60:0,
+    panel_id:ps?.value,
+    panel_name:po?.text||`${pitch}mm panel`,
+    panel_power:parseInt(po?.dataset.power)||150,
+  };
+  let calc;
+  try { calc=runEngine(inputs); } catch(e) { showToast('Engine error — check dimensions.','error'); console.error(e); return; }
+  if(!calc?.grid){showToast('Engine returned no data.','error');return;}
+  const{error}=await dbInsert('walls',{
+    project_id:CP.id,
+    name:document.getElementById('aw-n')?.value.trim()||`Wall ${CW.length+1}`,
+    order_index:CW.length,
+    width_ft:inputs.widthFt,height_ft:inputs.heightFt,
+    panel_id:ps?.value||null,mount_type:inputs.support,
+    panel_mode:inputs.panelMode,qty:inputs.qty,
+    calculated_output:calc,
+    location_label:document.getElementById('aw-loc')?.value.trim()||'Main',
+  });
+  if(error){showToast('Failed to save wall.','error');console.error(error);return;}
   document.getElementById('aw-overlay').classList.remove('open');
   showToast('Wall added!','success'); openProject(CP.id);
 }
