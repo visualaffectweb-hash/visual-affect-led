@@ -41,15 +41,17 @@ export function addToQueue(operation) {
   const queue = getQueue();
   queue.push({
     ...operation,
-    id: crypto.randomUUID(),
+    // NOTE: the queue entry's own id is stored as queueId so it never
+    // overwrites operation.id, which for update/delete is the record's id.
+    queueId: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
   });
   localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   console.log('[Offline Queue] Added operation:', operation.type, operation.table);
 }
 
-export function removeFromQueue(id) {
-  const queue = getQueue().filter(op => op.id !== id);
+export function removeFromQueue(queueId) {
+  const queue = getQueue().filter(op => op.queueId !== queueId);
   localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
@@ -66,6 +68,9 @@ export async function replayQueue() {
 
   for (const op of queue) {
     try {
+      // Entries queued before the queueId fix have no queueId — assign one
+      // so they can be tracked and removed correctly.
+      if (!op.queueId) op.queueId = crypto.randomUUID();
       let result;
       if (op.type === 'insert') {
         result = await supabase.from(op.table).insert(op.data);
@@ -78,7 +83,7 @@ export async function replayQueue() {
       if (result?.error) {
         console.error('[Offline Queue] Failed to replay:', op, result.error);
       } else {
-        removeFromQueue(op.id);
+        removeFromQueue(op.queueId);
         console.log('[Offline Queue] Replayed successfully:', op.type, op.table);
       }
     } catch (err) {

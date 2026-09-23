@@ -198,18 +198,22 @@ async function _usersPage() {
             <td class="text-small">${escH(u.email||'')}</td>
             <td class="text-small">${escH(u.phone||'—')}</td>
             <td>
-              <select class="form-select" style="font-size:11px;padding:4px 8px"
+              ${u.role==='deactivated'
+                ? `<span class="tag tag-red">Deactivated</span>`
+                : `<select class="form-select" style="font-size:11px;padding:4px 8px"
                 onchange="window.Admin.changeRole('${u.id}',this.value)">
                 <option value="technician" ${u.role==='technician'?'selected':''}>Technician</option>
                 <option value="manager" ${u.role==='manager'?'selected':''}>Manager</option>
                 <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-              </select>
+              </select>`}
             </td>
             <td class="text-small">${u.created_at?new Date(u.created_at).toLocaleDateString():'—'}</td>
             <td>
-              ${u.id !== getProfile()?.id ? `
+              ${u.id !== getProfile()?.id ? (u.role==='deactivated' ? `
+                <button class="btn" style="font-size:11px;padding:4px 9px"
+                  onclick="window.Admin.reactivateUser('${u.id}','${escH(u.first_name+' '+u.last_name)}')">Reactivate</button>` : `
                 <button class="btn btn-danger" style="font-size:11px;padding:4px 9px"
-                  onclick="window.Admin.deactivateUser('${u.id}','${escH(u.first_name+' '+u.last_name)}')">Deactivate</button>` : ''}
+                  onclick="window.Admin.deactivateUser('${u.id}','${escH(u.first_name+' '+u.last_name)}')">Deactivate</button>`) : ''}
             </td>
           </tr>`).join('')}
         </tbody>
@@ -226,8 +230,20 @@ async function changeRole(userId, role) {
 
 async function deactivateUser(userId, name) {
   if (!confirm(`Deactivate ${name}? They will not be able to log in.`)) return;
-  // In Supabase, deactivation requires admin API — for now just note it
-  showToast('Contact Supabase dashboard to fully deactivate auth users.', 'info');
+  const { error } = await supabase.from('profiles').update({ role: 'deactivated' }).eq('id', userId);
+  if (error) { showToast('Failed to deactivate user.', 'error'); console.error(error); return; }
+  await logActivity('user', userId, 'deactivated', {});
+  showToast(`${name} deactivated.`, 'success');
+  loadSection('users');
+}
+
+async function reactivateUser(userId, name) {
+  if (!confirm(`Reactivate ${name}? They will be able to log in again as a Technician.`)) return;
+  const { error } = await supabase.from('profiles').update({ role: 'technician' }).eq('id', userId);
+  if (error) { showToast('Failed to reactivate user.', 'error'); console.error(error); return; }
+  await logActivity('user', userId, 'reactivated', {});
+  showToast(`${name} reactivated.`, 'success');
+  loadSection('users');
 }
 
 // ============================================================
@@ -625,7 +641,7 @@ function showToast(msg,type='success'){window.showToast?.(msg,type);}
 window.Admin = {
   loadSection,
   saveSettings,
-  changeRole, deactivateUser,
+  changeRole, deactivateUser, reactivateUser,
   openVendorForm, saveVendor, deleteVendor,
   openTemplateEditor, saveTemplate, deleteTemplate,
   setDefaultTemplate, addTemplateTask, removeTemplateTask,

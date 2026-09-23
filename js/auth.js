@@ -33,6 +33,13 @@ export async function initAuth() {
   if (session?.user) {
     currentUser = session.user;
     await loadProfile(session.user.id);
+    if (currentProfile?.role === 'deactivated') {
+      // Account was deactivated while a session persisted — force sign out
+      await supabase.auth.signOut();
+      currentUser = null;
+      currentProfile = null;
+      return false;
+    }
     return true; // already logged in
   }
 
@@ -91,6 +98,12 @@ export async function login(usernameOrEmail, password) {
 
   currentUser = data.user;
   await loadProfile(data.user.id);
+  if (currentProfile?.role === 'deactivated') {
+    await supabase.auth.signOut();
+    currentUser = null;
+    currentProfile = null;
+    return { error: { message: 'This account has been deactivated. Contact your administrator.' } };
+  }
   await logActivity('auth', data.user.id, 'login');
 
   return { user: currentUser, profile: currentProfile };
@@ -229,48 +242,11 @@ export async function setUserRole(userId, role) {
 }
 
 // ============================================================
-// ADMIN: DELETE USER
+// ADMIN: USER MANAGEMENT
 // ============================================================
-
-export async function deleteUser(userId) {
-  if (!isAdmin()) return { error: { message: 'Admin only.' } };
-  if (userId === currentUser?.id) return { error: { message: 'Cannot delete yourself.' } };
-
-  // Supabase admin API needed for full deletion — mark inactive instead
-  const { error } = await supabase
-    .from('profiles')
-    .update({ role: 'technician', first_name: '[Deleted]' })
-    .eq('id', userId);
-
-  if (!error) await logActivity('admin', userId, 'user_deleted');
-  return { error };
-}
-
-// ============================================================
-// ADMIN: CREATE USER (admin creates on behalf)
-// ============================================================
-
-export async function adminCreateUser({ firstName, lastName, email, phone, password, role }) {
-  if (!isAdmin()) return { error: { message: 'Admin only.' } };
-
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { first_name: firstName, last_name: lastName, role },
-  });
-
-  if (error) return { error };
-
-  // Update profile with all fields
-  await supabase.from('profiles').upsert({
-    id: data.user.id,
-    first_name: firstName,
-    last_name: lastName,
-    phone: phone || '',
-    role: role || 'technician',
-  });
-
-  await logActivity('admin', data.user.id, 'user_created', { created_by: currentUser.id });
-  return { user: data.user };
-}
+// NOTE: Creating or deleting Supabase auth users requires the
+// service-role key and cannot be done from the browser. Admins
+// manage access via deactivateUser/reactivateUser in admin.js,
+// which sets the profile role to 'deactivated'. The login flow
+// refuses sign-in for deactivated profiles (see login/initAuth).
+// To fully delete an auth user, use the Supabase dashboard.

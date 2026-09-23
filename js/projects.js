@@ -317,6 +317,7 @@ function _sumTab(wall) {
   }
   const out=wall.calculated_output, g=out.grid;
   const stat=out.warn?`<div class="alert alert-warn">⚠ ${out.warn}</div>`:`<div class="alert alert-ok">✓ OK — ${g.total*wall.qty} total panels · ${out.dataChains*wall.qty} data ports</div>`;
+  const cards=[{l:'Built Size',v:`${(g.widthMm/304.8).toFixed(1)}′×${(g.heightMm/304.8).toFixed(1)}′`,s:'each wall'},{l:'Resolution',v:`${out.pxW}×${out.pxH}`,s:'pixels'},{l:'Aspect',v:out.near,s:`${out.si.w}:${out.si.h}`},{l:'Panels Each',v:g.total,s:`${g.p1000}×1000, ${g.p500}×500`},{l:'Panel',v:escH(out.panel_name||'—'),s:`${out.pitch}mm · ${out.panel_power||'—'}W`},{l:'Data Chains',v:out.dataChains,s:'per wall'},{l:'Power Chains',v:out.powerChainCount,s:'per wall'},{l:'Circuits',v:out.circuits,s:'20A/120V est.'}].map(c=>`<div class="summary-card"><div class="summary-card-label">${c.l}</div><div class="summary-card-value">${c.v}</div><div class="summary-card-sub">${c.s}</div></div>`).join('');
   return projectInfo + stat + `<div class="summary-grid">${cards}</div>`;
 }
 function _sumTab_old(wall) { // unused
@@ -475,6 +476,9 @@ function showTab(name) {
   ['sum','diag','counts','pack','walls','team','tasks','logistics','history'].forEach(t=>{document.getElementById('tb-'+t)?.classList.toggle('active',t===name);document.getElementById('tp-'+t)?.classList.toggle('active',t===name);});
   if (name==='diag'){const w=CW[CWI];if(w?.calculated_output)_drawDiag(w.calculated_output,CDM);}
   if (name==='team') _loadTeam();
+  if (name==='tasks') _loadProjTasks();
+  if (name==='logistics') _loadProjLogistics();
+  if (name==='history') _loadJobHistory();
 }
 
 function switchWall(i) { CWI=i; _renderProjView(document.getElementById('main-content')); }

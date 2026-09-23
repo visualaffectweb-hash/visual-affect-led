@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1b3e">
+<title>Proposal — Visual Affect</title>
+<style>
+  :root{
+    --navy:#0d1b3e; --accent:#1a3a5c; --blue:#2563eb;
+    --text:#111827; --muted:#6b7280; --border:#d1d5db; --bg:#f4f5f7;
+    --ok:#166534; --ok-bg:#f0fdf4; --warn:#92400e; --warn-bg:#fffbeb; --danger:#991b1b; --danger-bg:#fef2f2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  .hero{background:var(--navy);color:#fff;padding:28px 20px}
+  .hero-inner{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:16px}
+  .hero img{height:44px;width:auto}
+  .hero .brand{font-weight:800;letter-spacing:2px;font-size:15px}
+  .hero .sub{font-size:12px;opacity:.75}
+  .wrap{max-width:760px;margin:0 auto;padding:24px 20px 60px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .status{display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;margin-bottom:12px}
+  .st-sent{background:#eff6ff;color:var(--blue)}
+  .st-approved{background:var(--ok-bg);color:var(--ok)}
+  .st-changes_requested{background:var(--warn-bg);color:var(--warn)}
+  .st-cancelled{background:var(--danger-bg);color:var(--danger)}
+  .st-draft{background:#f3f4f6;color:var(--muted)}
+  h1{font-size:24px;margin-bottom:4px}
+  .meta{color:var(--muted);font-size:13px;margin-bottom:4px}
+  .group{margin-top:20px}
+  .group-name{background:#f1f5f9;border-radius:8px;padding:8px 12px;font-weight:700;font-size:14px;margin-bottom:8px}
+  .pkg{font-style:italic;color:#4b5563;font-size:13px;margin:10px 0 4px}
+  .item{display:flex;justify-content:space-between;gap:12px;padding:7px 4px;border-bottom:1px solid #f3f4f6;font-size:14px}
+  .item .qty{color:var(--muted);white-space:nowrap}
+  .item .amt{font-weight:600;white-space:nowrap}
+  .totals{margin-top:16px;border-top:2px solid var(--border);padding-top:12px}
+  .trow{display:flex;justify-content:space-between;font-size:14px;padding:3px 0}
+  .trow.grand{font-size:18px;font-weight:800;margin-top:6px}
+  .terms{margin-top:16px;font-size:13px;color:#4b5563;white-space:pre-wrap}
+  .terms h3{font-size:13px;color:var(--text);margin-bottom:6px}
+  .actions{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap}
+  .btn{flex:1;min-width:200px;padding:14px 20px;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
+  .btn-approve{background:var(--ok);color:#fff}
+  .btn-approve:hover{background:#14532d}
+  .btn-decline{background:#fff;color:var(--danger);border:2px solid var(--danger)}
+  .btn-decline:hover{background:var(--danger-bg)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .center{text-align:center;padding:60px 20px}
+  .center .big{font-size:48px;margin-bottom:12px}
+  .spinner{width:36px;height:36px;border:4px solid var(--border);border-top-color:var(--blue);border-radius:50%;margin:0 auto 16px;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{font-size:13px;color:var(--muted);margin-top:16px;text-align:center}
+  .err{background:var(--danger-bg);color:var(--danger);border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-top:12px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-inner">
+    <img src="assets/logo-white.png" alt="Visual Affect" onerror="this.style.display='none'">
+    <div><div class="brand">VISUAL AFFECT</div><div class="sub">LED Video Walls</div></div>
+  </div>
+</div>
+<div class="wrap" id="app">
+  <div class="center"><div class="spinner"></div><div>Loading proposal…</div></div>
+</div>
+
+<script type="module">
+import { supabase } from './js/supabase.js';
+
+const app = document.getElementById('app');
+const token = new URLSearchParams(location.search).get('token');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const STATUS_LABEL = { draft:'Draft', sent:'Sent', changes_requested:'Changes Requested', approved:'Approved', invoice:'Invoice', deposit_pending:'Deposit Pending', paid:'Paid', cancelled:'Cancelled' };
+const ACTIONABLE = new Set(['sent', 'changes_requested']);
+
+function invalidState() {
+  app.innerHTML = `<div class="card"><div class="center">
+    <div class="big">🔗</div>
+    <h1>Link not valid</h1>
+    <p class="meta">This approval link is invalid, has expired, or the proposal is no longer shareable.<br>Please contact Visual Affect for a fresh link.</p>
+  </div></div>`;
+}
+
+function renderProposal(p) {
+  const c = p.contacts || {};
+  const groups = Array.isArray(p.proposal_groups) ? p.proposal_groups : [];
+  let itemsHtml = '';
+  groups.forEach(g => {
+    itemsHtml += `<div class="group"><div class="group-name">${esc(g.name)}</div>`;
+    (g.packages || []).forEach(pkg => {
+      itemsHtml += `<div class="pkg">Package: ${esc(pkg.name)}</div>`;
+      (pkg.items || []).forEach(it => {
+        itemsHtml += `<div class="item"><span>${esc(it.qty || 1)}× ${esc(it.name)}</span><span class="amt">${money((it.qty || 1) * (it.unit_price || 0))}</span></div>`;
+      });
+    });
+    (g.items || []).forEach(it => {
+      itemsHtml += `<div class="item"><span>${esc(it.qty || 1)}× ${esc(it.name)}</span><span class="amt">${money((it.qty || 1) * (it.unit_price || 0))}</span></div>`;
+    });
+    itemsHtml += `</div>`;
+  });
+
+  const actionable = ACTIONABLE.has(p.status);
+  app.innerHTML = `
+    <div class="card">
+      <span class="status st-${esc(p.status || 'draft')}">${esc(STATUS_LABEL[p.status] || p.status || 'Proposal')}</span>
+      <h1>${esc(p.title || 'Proposal')}</h1>
+      ${c.company_name ? `<div class="meta">Prepared for ${esc(c.company_name)}</div>` : ''}
+      ${p.created_at ? `<div class="meta">Date: ${new Date(p.created_at).toLocaleDateString()}</div>` : ''}
+      ${p.jobsite_address ? `<div class="meta">Jobsite: ${esc(p.jobsite_address)}</div>` : ''}
+      ${itemsHtml}
+      <div class="totals">
+        <div class="trow"><span>Subtotal</span><span>${money(p.subtotal)}</span></div>
+        <div class="trow"><span>Tax (${esc(p.tax_rate || 0)}%)</span><span>${money(p.tax_amount)}</span></div>
+        <div class="trow grand"><span>Total</span><span>${money(p.total)}</span></div>
+        <div class="trow"><span>Deposit (${esc(p.deposit_pct ?? 50)}%)</span><span>${money(p.deposit_amount)}</span></div>
+      </div>
+      ${p.terms_notes ? `<div class="terms"><h3>Terms &amp; Notes</h3>${esc(p.terms_notes)}</div>` : ''}
+      <div id="decision"></div>
+      ${actionable ? `
+      <div class="actions">
+        <button class="btn btn-approve" id="btn-approve">✓ Approve Proposal</button>
+        <button class="btn btn-decline" id="btn-decline">Request Changes</button>
+      </div>
+      <div class="note">Approving confirms you accept this proposal and its terms.</div>
+      ` : `
+      <div class="note">This proposal has been <strong>${esc(STATUS_LABEL[p.status] || p.status)}</strong>. No further action is needed.</div>
+      `}
+    </div>`;
+
+  if (!actionable) return;
+  document.getElementById('btn-approve').onclick = () => decide('approved', 'Approve this proposal?');
+  document.getElementById('btn-decline').onclick = () => decide('changes_requested', 'Request changes to this proposal?');
+}
+
+async function decide(status, confirmMsg) {
+  if (!confirm(confirmMsg)) return;
+  const decision = document.getElementById('decision');
+  decision.innerHTML = '';
+  const { error } = await supabase.from('proposals').update({ status }).eq('approval_token', token);
+  if (error) {
+    console.error('[client] decision update failed:', error);
+    decision.innerHTML = `<div class="err">We couldn't record your response. Please contact Visual Affect directly.</div>`;
+    return;
+  }
+  app.innerHTML = `<div class="card"><div class="center">
+    <div class="big">${status === 'approved' ? '✅' : '📝'}</div>
+    <h1>${status === 'approved' ? 'Proposal approved' : 'Changes requested'}</h1>
+    <p class="meta">${status === 'approved'
+      ? 'Thank you! Visual Affect has been notified and will be in touch about next steps.'
+      : 'Thank you! Visual Affect has been notified and will follow up with a revision.'}</p>
+  </div></div>`;
+}
+
+async function init() {
+  if (!token) { invalidState(); return; }
+  const { data, error } = await supabase.from('proposals')
+    .select('*,contacts(*)')
+    .eq('approval_token', token)
+    .maybeSingle();
+  if (error || !data) {
+    console.error('[client] proposal lookup failed:', error);
+    invalidState();
+    return;
+  }
+  renderProposal(data);
+}
+
+init();
+</script>
+</body>
+</html>

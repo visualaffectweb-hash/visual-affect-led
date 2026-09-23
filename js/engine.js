@@ -279,7 +279,7 @@ export function runEngine(I) {
   addPk('Cases Rigging case',1);
 
   return {
-    grid,pitch,support:sup,qty,
+    grid:g,pitch,support:sup,qty,
     pxW,pxH,near,si,warn,
     dataChains:best.chains.length,
     powerChainCount:pCh.length,
