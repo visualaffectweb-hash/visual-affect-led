@@ -554,7 +554,7 @@ function _infoScopeTab() {
 }
 
 function _showDayRow(sd, i) {
-  return `<div class="sd-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px">
+  return `<div class="sd-row rg" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px">
     <div><label class="form-label">Date</label><input class="form-input sd-date" type="date" value="${escH(sd.date||'')}" onchange="window.Leads.saveSchedule()"></div>
     <div><label class="form-label">Start</label><input class="form-input sd-start" type="time" value="${escH(sd.startTime||'')}" onchange="window.Leads.saveSchedule()"></div>
     <div><label class="form-label">End</label><input class="form-input sd-end" type="time" value="${escH(sd.endTime||'')}" onchange="window.Leads.saveSchedule()"></div>

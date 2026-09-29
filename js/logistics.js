@@ -184,7 +184,7 @@ function _scheduleTab() {
 }
 
 function _showDayRow(sd, i) {
-  return `<div class="sd-row" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--color-border-light)">
+  return `<div class="sd-row rg" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--color-border-light)">
     <div><label class="form-label">Date</label><input class="form-input sd-date" type="date" value="${escH(sd.date||'')}"></div>
     <div><label class="form-label">Doors/Start</label><input class="form-input sd-start" type="time" value="${escH(sd.startTime||'')}"></div>
     <div><label class="form-label">Show End</label><input class="form-input sd-end" type="time" value="${escH(sd.endTime||'')}"></div>
@@ -341,13 +341,13 @@ function _truckLeg(leg, i) {
       <div class="form-field"><label class="form-label">Pickup Location</label>
         <input class="form-input tl-pfrom" placeholder="e.g. Warehouse" value="${escH(leg.pickupLocation||'')}"></div>
       <div class="form-field"><label class="form-label">Pickup Date / Time</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div class="rg" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
           <input class="form-input tl-pdate" type="date" value="${escH(leg.pickupDate||'')}">
           <input class="form-input tl-ptime" type="time" value="${escH(leg.pickupTime||'')}"></div></div>
       <div class="form-field"><label class="form-label">Delivery Location</label>
         <input class="form-input tl-dto" placeholder="e.g. Convention Center Dock 3" value="${escH(leg.deliveryLocation||'')}"></div>
       <div class="form-field"><label class="form-label">Delivery Date / Time</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div class="rg" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
           <input class="form-input tl-ddate" type="date" value="${escH(leg.deliveryDate||'')}">
           <input class="form-input tl-dtime" type="time" value="${escH(leg.deliveryTime||'')}"></div></div>
       <div class="form-field" style="grid-column:1/-1"><label class="form-label">Notes</label>

@@ -369,7 +369,7 @@ function _renderWizStep() {
 }
 
 function _sdRow(sd, i) {
-  return `<div class="sd-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px">
+  return `<div class="sd-row rg" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px">
     <div><label class="form-label">Date</label><input class="form-input sd-date" type="date" value="${escH(sd.date||'')}"></div>
     <div><label class="form-label">Start</label><input class="form-input sd-start" type="time" value="${escH(sd.startTime||'')}"></div>
     <div><label class="form-label">End</label><input class="form-input sd-end" type="time" value="${escH(sd.endTime||'')}"></div>
@@ -378,7 +378,7 @@ function _sdRow(sd, i) {
 }
 
 function _wallRow(w, i) {
-  return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px">
+  return `<div class="rg" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px">
     <div><label class="form-label">Width (ft)</label><input class="form-input wall-w" type="number" step="0.5" value="${w.width||''}"></div>
     <div><label class="form-label">Height (ft)</label><input class="form-input wall-h" type="number" step="0.5" value="${w.height||''}"></div>
     <div><label class="form-label">Qty</label><input class="form-input wall-qty" type="number" min="1" value="${w.qty||1}"></div>
@@ -461,7 +461,7 @@ function _groupBlock(group, gi) {
             <button class="btn" style="font-size:11px;padding:3px 8px" onclick="window.Proposals._savePkgAsTemplate(${gi},${pi})">💾</button>
             <button class="btn btn-danger" style="font-size:11px;padding:3px 8px" onclick="window.Proposals._removePkg(${gi},${pi})">✕</button>
           </div>
-          ${(pkg.items||[]).map((item,ii)=>`<div style="display:grid;grid-template-columns:1fr 60px 70px 70px 80px auto;gap:6px;align-items:center;padding:5px 12px;border-bottom:1px solid #f3f4f6">
+          ${(pkg.items||[]).map((item,ii)=>`<div class="rg" style="display:grid;grid-template-columns:1fr 60px 70px 70px 80px auto;gap:6px;align-items:center;padding:5px 12px;border-bottom:1px solid #f3f4f6">
             <input class="form-input" style="padding:3px 6px;font-size:12px" value="${escH(item.name||'')}" onchange="window.Proposals._updatePkgItem(${gi},${pi},${ii},'name',this.value)">
             <input class="form-input" style="padding:3px 6px;font-size:12px;text-align:center" type="number" min="1" value="${item.qty||1}" onchange="window.Proposals._updatePkgItem(${gi},${pi},${ii},'qty',this.value)">
             <input class="form-input" style="padding:3px 6px;font-size:12px" value="${escH(item.unit||'ea')}" onchange="window.Proposals._updatePkgItem(${gi},${pi},${ii},'unit',this.value)">
@@ -470,7 +470,7 @@ function _groupBlock(group, gi) {
             <button class="btn btn-danger" style="padding:2px 6px;font-size:11px" onclick="window.Proposals._removePkgItem(${gi},${pi},${ii})">✕</button>
           </div>`).join('')}
         </div>`).join('')}
-      ${(group.items||[]).map((item,ii)=>`<div style="display:grid;grid-template-columns:1fr 60px 70px 70px 80px auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid #f3f4f6">
+      ${(group.items||[]).map((item,ii)=>`<div class="rg" style="display:grid;grid-template-columns:1fr 60px 70px 70px 80px auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid #f3f4f6">
         <input class="form-input" style="padding:3px 6px;font-size:12px" value="${escH(item.name||'')}" onchange="window.Proposals._updateGroupItem(${gi},${ii},'name',this.value)">
         <input class="form-input" style="padding:3px 6px;font-size:12px;text-align:center" type="number" min="1" value="${item.qty||1}" onchange="window.Proposals._updateGroupItem(${gi},${ii},'qty',this.value)">
         <input class="form-input" style="padding:3px 6px;font-size:12px" value="${escH(item.unit||'ea')}" onchange="window.Proposals._updateGroupItem(${gi},${ii},'unit',this.value)">
@@ -499,7 +499,7 @@ function _laborStep() {
 
 function _laborRow(pos, i) {
   return `<div style="background:#fff;border:1.5px solid var(--color-border-light);border-radius:8px;padding:12px;margin-bottom:8px">
-    <div style="display:grid;grid-template-columns:1fr 90px 70px 70px auto;gap:10px;align-items:end">
+    <div class="rg" style="display:grid;grid-template-columns:1fr 90px 70px 70px auto;gap:10px;align-items:end">
       <div class="form-field"><label class="form-label">Role / Position</label>
         <input class="form-input" value="${escH(pos.role||'')}" placeholder="Lead LED Tech, A2, Driver"
           onchange="window.Proposals._updateLabor(${i},'role',this.value)"></div>

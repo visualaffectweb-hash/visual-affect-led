@@ -338,6 +338,7 @@ html, body {
 /* ── MAIN CONTENT ────────────────────────────────────────────── */
 .main-content {
   flex: 1;
+  min-width: 0;
   padding: var(--space-6);
   overflow-y: auto;
 }
@@ -559,6 +560,7 @@ html, body {
 .form-select,
 .form-textarea {
   width: 100%;
+  min-width: 0;
   padding: 9px 12px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
@@ -581,9 +583,13 @@ html, body {
   background: var(--color-white);
   border: 1.5px solid var(--color-border-light);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: var(--shadow-sm);
 }
+
+/* Horizontal scroll wrapper for wide-on-purpose content (e.g. 7-day picker) */
+.hscroll { overflow-x: auto; }
+.hscroll > * { min-width: 480px; }
 
 table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
@@ -1199,4 +1205,13 @@ table.data-table tr:hover td { background: #fafafa; }
   .form-grid-4 { grid-template-columns: 1fr; }
   .kanban-board { grid-template-columns: 1fr; }
   .card-grid { grid-template-columns: 1fr; }
+  /* Responsive grid helper: inline multi-column grids tagged with .rg
+     collapse to a single column on phones */
+  .rg { grid-template-columns: 1fr !important; }
+  .topbar { padding: 0 var(--space-3); }
+  .topbar-appname { display: none; }
+  .topbar-user { display: none; }
+  .topbar-divider { display: none; }
+  .modal { padding: var(--space-4); }
+  .main-content { padding: var(--space-3); }
 }

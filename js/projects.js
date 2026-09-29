@@ -114,13 +114,13 @@ function _renderStep() {
   if (st.type==='text') inp=`<input class="form-input" id="wi" type="text" placeholder="${st.ph||''}" value="${escH(wAns[st.id]||'')}" style="margin-top:10px;width:100%">`;
   else if (st.type==='num') inp=`<input class="form-input" id="wi" type="number" placeholder="${st.ph||''}" min="${st.min||0}" value="${wAns[st.id]||''}" style="margin-top:10px;width:100%">`;
   else if (st.type==='opts') { const sel=wAns[st.id]||''; inp=`<div class="option-grid">${st.opts.map(o=>`<button class="option-btn ${sel===o?'selected':''}" onclick="window.Projects._wSel(this,'${st.id}','${o}')">${o}</button>`).join('')}</div>`; }
-  else if (st.type==='dims') inp=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label class="form-label">Width (ft)</label><input class="form-input" id="wW" type="number" placeholder="20" min="1" step="0.5" value="${wAns.widthFt||''}"></div><div><label class="form-label">Height (ft)</label><input class="form-input" id="wH" type="number" placeholder="12" min="1" step="0.5" value="${wAns.heightFt||''}"></div></div>`;
+  else if (st.type==='dims') inp=`<div class="rg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label class="form-label">Width (ft)</label><input class="form-input" id="wW" type="number" placeholder="20" min="1" step="0.5" value="${wAns.widthFt||''}"></div><div><label class="form-label">Height (ft)</label><input class="form-input" id="wH" type="number" placeholder="12" min="1" step="0.5" value="${wAns.heightFt||''}"></div></div>`;
   else if (st.type==='panel') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${wPanels.map(p=>`<button class="option-btn ${sel==p.id?'selected':''}" data-panel-id="${p.id}" onclick="window.Projects._wSelPanel(this)"><strong>${escH(p.name)}</strong><div class="option-sub">${escH(p.manufacturer||'')} · ${p.panel_data?.pitch||'?'}mm<br>${p.panel_data?.size==='1000'?'1000×500mm':'500×500mm'} · ${p.qty_available} in stock</div></button>`).join('')}</div>`; }
   else if (st.type==='client') { const sel=wAns[st.id]||''; inp=`<div class="option-grid" style="margin-top:10px"><button class="option-btn ${(!sel||sel==='__skip__')?'selected':''}" data-client-id="__skip__" onclick="window.Projects._wSelClient(this)">Skip for now</button>${wClients.map(c=>`<button class="option-btn ${sel==c.id?'selected':''}" data-client-id="${c.id}" onclick="window.Projects._wSelClient(this)"><strong>${escH(c.company_name)}</strong><div class="option-sub">${escH(c.contact_name||'')}</div></button>`).join('')}</div>`; }
   else if (st.type==='dates') inp=`<div style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
     <div style="background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px;padding:14px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:10px">Load In</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="rg" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label class="form-label">Date</label><input class="form-input" id="wLoadInDate" type="date" value="${wAns.loadInDate||''}"></div>
         <div><label class="form-label">Start Time</label><input class="form-input" id="wLoadInTime" type="time" value="${wAns.loadInTime||''}"></div>
       </div>
@@ -129,7 +129,7 @@ function _renderStep() {
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:10px">Show Days</div>
       <div id="show-days-list" style="display:flex;flex-direction:column;gap:8px">
         ${(wAns.showDays||[{date:'',startTime:'',endTime:''}]).map((sd,i)=>`
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+          <div class="rg" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
             <div><label class="form-label">Date</label><input class="form-input show-day-date" type="date" data-idx="${i}" value="${sd.date||''}"></div>
             <div><label class="form-label">Doors / Start</label><input class="form-input show-day-start" type="time" data-idx="${i}" value="${sd.startTime||''}"></div>
             <div><label class="form-label">Show End</label><input class="form-input show-day-end" type="time" data-idx="${i}" value="${sd.endTime||''}"></div>
@@ -140,7 +140,7 @@ function _renderStep() {
     </div>
     <div style="background:#f9fafb;border:1.5px solid var(--color-border-light);border-radius:8px;padding:14px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--color-muted);margin-bottom:10px">Load Out</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="rg" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label class="form-label">Date</label><input class="form-input" id="wLoadOutDate" type="date" value="${wAns.loadOutDate||''}"></div>
         <div><label class="form-label">Start Time</label><input class="form-input" id="wLoadOutTime" type="time" value="${wAns.loadOutTime||''}"></div>
       </div>

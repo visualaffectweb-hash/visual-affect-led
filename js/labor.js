@@ -217,7 +217,7 @@ async function _scheduleTab() {
             <div style="font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;color:var(--color-muted);margin-bottom:8px">
               Week of ${days[0].toLocaleDateString('en-US',{month:'short',day:'numeric'})}
             </div>
-            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+            <div class="hscroll"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
               ${days.map(day => {
                 const dateStr = day.toISOString().split('T')[0];
                 const dayBookings = bookingsByDate[dateStr] || [];
@@ -234,7 +234,7 @@ async function _scheduleTab() {
                     </div>`).join('')}
                 </div>`;
               }).join('')}
-            </div>
+            </div></div>
           </div>`).join('')}
       </div>
     </div>
