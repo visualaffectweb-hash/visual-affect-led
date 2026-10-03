@@ -546,7 +546,7 @@ html, body {
 .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
 .form-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
 
-.form-field { display: flex; flex-direction: column; gap: 5px; }
+.form-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 
 .form-label {
   font-size: 11px;
@@ -561,6 +561,7 @@ html, body {
 .form-textarea {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   padding: 9px 12px;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
